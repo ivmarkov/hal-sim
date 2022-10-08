@@ -1,18 +1,11 @@
 use std::sync::Mutex;
 
-use embedded_svc::ws::asynch::server::Acceptor;
-
-use edge_net::asynch::{
-    channel::{Receiver, Sender},
-    ws_channel,
-};
-use futures::Future;
-
 use crate::display::{Change as DisplayChange, SharedDisplays};
-use crate::dto::web::{WebEvent, WebRequest};
 use crate::gpio::{Change as PinChange, SharedPins};
 use crate::notification::Notification;
 use crate::web;
+
+pub use embedded_svc_impl::*;
 
 #[cfg(any(
     feature = "ws-max-connections-2",
@@ -46,68 +39,7 @@ static HANDLER_PIN_CHANGES: [Mutex<Vec<PinChange>>; WS_MAX_CONNECTIONS] =
 static HANDLER_DISPLAY_CHANGES: [Mutex<Vec<DisplayChange>>; WS_MAX_CONNECTIONS] =
     [DISPLAY_MUTEX; WS_MAX_CONNECTIONS];
 
-struct WebHandler {
-    pins: SharedPins,
-    displays: SharedDisplays,
-}
-
-impl ws_channel::AcceptorHandler for WebHandler {
-    type SendData = WebEvent;
-
-    type ReceiveData = WebRequest;
-
-    type HandleFuture<'a, S, R> = impl Future<Output = Result<(), S::Error>>
-    where
-        Self: 'a,
-        S: Sender<Data = Self::SendData> + 'a,
-        R: Receiver<Error = S::Error, Data = Option<Self::ReceiveData>> + 'a,
-        S::Error: core::fmt::Debug + 'a;
-
-    fn handle<'a, S, R>(
-        &'a self,
-        sender: S,
-        receiver: R,
-        index: usize,
-    ) -> Self::HandleFuture<'a, S, R>
-    where
-        S: Sender<Data = Self::SendData> + 'a,
-        R: Receiver<Error = S::Error, Data = Option<Self::ReceiveData>> + 'a,
-        S::Error: core::fmt::Debug + 'a,
-    {
-        async move {
-            web::handle(
-                sender,
-                receiver,
-                &self.pins,
-                Some(&HANDLER_PIN_CHANGES[index]),
-                &self.displays,
-                Some(&HANDLER_DISPLAY_CHANGES[index]),
-                &HANDLERS_NOTIFS[index],
-            )
-            .await
-        }
-    }
-}
-
-pub async fn process<A: Acceptor, const W: usize>(
-    acceptor: A,
-    pins: SharedPins,
-    displays: SharedDisplays,
-) {
-    embassy_futures::select::select(
-        ws_channel::accept::<{ WS_MAX_CONNECTIONS }, 1, { WS_MAX_FRAME_LEN }, _, _>(
-            acceptor,
-            WebHandler {
-                pins: pins.clone(),
-                displays: displays.clone(),
-            },
-        ),
-        broadcast(pins, displays),
-    )
-    .await;
-}
-
-async fn broadcast(pins: SharedPins, displays: SharedDisplays) {
+pub async fn broadcast(pins: SharedPins, displays: SharedDisplays) {
     loop {
         web::NOTIFY.wait().await;
 
@@ -146,5 +78,80 @@ async fn broadcast(pins: SharedPins, displays: SharedDisplays) {
         for notification in &HANDLERS_NOTIFS {
             notification.notify();
         }
+    }
+}
+
+pub mod embedded_svc_impl {
+    use core::future::Future;
+
+    use embedded_svc::ws::asynch::server::Acceptor;
+
+    use edge_net::asynch::channel::{Receiver, Sender};
+    use edge_net::asynch::ws_channel;
+
+    use crate::display::SharedDisplays;
+    use crate::dto::web::{WebEvent, WebRequest};
+    use crate::gpio::SharedPins;
+    use crate::web;
+
+    struct WebHandler {
+        pins: SharedPins,
+        displays: SharedDisplays,
+    }
+
+    impl ws_channel::AcceptorHandler for WebHandler {
+        type SendData = WebEvent;
+
+        type ReceiveData = WebRequest;
+
+        type HandleFuture<'a, S, R> = impl Future<Output = Result<(), S::Error>>
+        where
+            Self: 'a,
+            S: Sender<Data = Self::SendData> + 'a,
+            R: Receiver<Error = S::Error, Data = Option<Self::ReceiveData>> + 'a,
+            S::Error: core::fmt::Debug + 'a;
+
+        fn handle<'a, S, R>(
+            &'a self,
+            sender: S,
+            receiver: R,
+            index: usize,
+        ) -> Self::HandleFuture<'a, S, R>
+        where
+            S: Sender<Data = Self::SendData> + 'a,
+            R: Receiver<Error = S::Error, Data = Option<Self::ReceiveData>> + 'a,
+            S::Error: core::fmt::Debug + 'a,
+        {
+            async move {
+                web::handle(
+                    sender,
+                    receiver,
+                    &self.pins,
+                    Some(&super::HANDLER_PIN_CHANGES[index]),
+                    &self.displays,
+                    Some(&super::HANDLER_DISPLAY_CHANGES[index]),
+                    &super::HANDLERS_NOTIFS[index],
+                )
+                .await
+            }
+        }
+    }
+
+    pub async fn accept<A: Acceptor, const W: usize>(
+        acceptor: A,
+        pins: SharedPins,
+        displays: SharedDisplays,
+    ) {
+        embassy_futures::select::select(
+            ws_channel::accept::<{ super::WS_MAX_CONNECTIONS }, 1, {super:: WS_MAX_FRAME_LEN }, _, _>(
+                acceptor,
+                WebHandler {
+                    pins: pins.clone(),
+                    displays: displays.clone(),
+                },
+            ),
+            super::broadcast(pins, displays),
+        )
+        .await;
     }
 }
