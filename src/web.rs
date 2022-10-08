@@ -127,7 +127,7 @@ fn find_pin_change(pins: &SharedPins, changes: Option<&HandlerPinChanges>) -> Op
             let mut changes = changes.lock().unwrap();
 
             if id < changes.len() {
-                consume_pin_change(id as u8, state.pin(), &mut (*changes)[id as usize])
+                consume_pin_change(id as u8, state.pin(), &mut (*changes)[id])
             } else {
                 None
             }
@@ -173,7 +173,7 @@ fn find_display_change(
             let mut changes = changes.lock().unwrap();
 
             if id < changes.len() {
-                consume_display_change(id as u8, state.display(), &mut (*changes)[id as usize])
+                consume_display_change(id as u8, state.display(), &mut (*changes)[id])
             } else {
                 None
             }

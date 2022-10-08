@@ -226,7 +226,7 @@ impl SharedDisplay {
                 if *cell != pixel.1 {
                     *cell = pixel.1;
 
-                    changed_state.update_row(y as usize, x as usize, x as usize + 1);
+                    changed_state.update_row(y, x, x + 1);
                     changed = true;
                 }
             }
