@@ -40,6 +40,10 @@ impl Pins {
         }
     }
 
+    pub fn shared(&self) -> &SharedPins {
+        &self.shared
+    }
+
     pub fn input(&mut self, name: PinName, value: bool) -> Pin<Input> {
         self.new_pin(name, PinValue::Input(value))
     }

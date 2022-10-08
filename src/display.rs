@@ -29,6 +29,10 @@ impl Displays {
         }
     }
 
+    pub fn shared(&self) -> &SharedDisplays {
+        &self.shared
+    }
+
     pub fn display<C>(
         &mut self,
         name: DisplayName,
