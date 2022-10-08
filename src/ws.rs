@@ -47,7 +47,7 @@ struct WebHandler {
     displays: SharedDisplays,
 }
 
-impl ws_channel::embedded_svc_impl::AcceptorHandler for WebHandler {
+impl ws_channel::AcceptorHandler for WebHandler {
     type SendData = WebEvent;
 
     type ReceiveData = WebRequest;
@@ -91,13 +91,7 @@ pub async fn process<A: Acceptor, const W: usize>(
     displays: SharedDisplays,
 ) {
     embassy_futures::select::select(
-        ws_channel::embedded_svc_impl::accept::<
-            { WS_MAX_CONNECTIONS },
-            1,
-            { WS_MAX_FRAME_LEN },
-            _,
-            _,
-        >(
+        ws_channel::accept::<{ WS_MAX_CONNECTIONS }, 1, { WS_MAX_FRAME_LEN }, _, _>(
             acceptor,
             WebHandler {
                 pins: pins.clone(),
