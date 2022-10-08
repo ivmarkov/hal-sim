@@ -201,11 +201,13 @@ where
     type Error = Infallible;
 
     fn set_low(&mut self) -> Result<(), Self::Error> {
-        Ok(Pin::set_output(self, false))
+        Pin::set_output(self, false);
+        Ok(())
     }
 
     fn set_high(&mut self) -> Result<(), Self::Error> {
-        Ok(Pin::set_output(self, true))
+        Pin::set_output(self, true);
+        Ok(())
     }
 }
 

@@ -36,6 +36,7 @@ pub enum WebRequestPayload {
     PinAnalogUpdate(u8, u16),
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum WebEvent {
     PinUpdate { id: u8, update: PinUpdate },

@@ -32,8 +32,12 @@ pub const WS_MAX_CONNECTIONS: usize = 16;
 
 pub const WS_MAX_FRAME_LEN: usize = 512;
 
+#[allow(clippy::declare_interior_mutable_const)]
 const NOTIF: Notification = Notification::new();
+
+#[allow(clippy::declare_interior_mutable_const)]
 const PIN_MUTEX: Mutex<Vec<PinChange>> = Mutex::new(Vec::new());
+#[allow(clippy::declare_interior_mutable_const)]
 const DISPLAY_MUTEX: Mutex<Vec<DisplayChange>> = Mutex::new(Vec::new());
 
 static HANDLERS_NOTIFS: [Notification; WS_MAX_CONNECTIONS] = [NOTIF; WS_MAX_CONNECTIONS];

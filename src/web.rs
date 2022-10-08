@@ -150,7 +150,7 @@ fn consume_pin_change(id: u8, pin: &SharedPin, change: &mut PinChange) -> Option
                     None
                 },
                 dropped: pin.dropped(),
-                value: pin.value().clone(),
+                value: *pin.value(),
             },
         });
 
@@ -213,7 +213,6 @@ fn consume_display_change(
                 None
             }
         }
-        _ => unreachable!(),
     };
 
     change.reset();

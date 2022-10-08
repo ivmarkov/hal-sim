@@ -255,8 +255,7 @@ impl Change {
                 Self::Updated(other_rows, other_dropped) => {
                     *dropped = *dropped || *other_dropped;
 
-                    for i in 0..other_rows.len() {
-                        let other_row = &other_rows[i];
+                    for (i, other_row) in other_rows.iter().enumerate() {
                         self.update_row(i, other_row.0, other_row.1);
                     }
                 }
