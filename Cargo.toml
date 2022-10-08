@@ -18,5 +18,5 @@ postcard = "0.7"
 serde = { version = "1", default-features = false }
 embassy-futures = { version = "0.1", git = "https://github.com/ivmarkov/embassy" }
 embassy-sync = { version = "0.1", git = "https://github.com/ivmarkov/embassy" }
-#edge-net = { version = "0.1", git = "https://github.com/ivmarkov/edge-net", features = ["nightly", "embassy-util", "embedded-svc"] }
-edge-net = { version = "0.1", path = "../edge-net", features = ["nightly", "embassy-util", "embedded-svc"] }
+edge-net = { version = "0.1", git = "https://github.com/ivmarkov/edge-net", features = ["nightly", "embassy-util", "embedded-svc"] }
+#edge-net = { version = "0.1", path = "../edge-net", features = ["nightly", "embassy-util", "embedded-svc"] }
