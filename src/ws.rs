@@ -5,6 +5,7 @@ use crate::gpio::{Change as PinChange, SharedPins};
 use crate::notification::Notification;
 use crate::web;
 
+#[cfg(feature = "embedded-svc")]
 pub use embedded_svc_impl::*;
 
 #[cfg(any(
@@ -81,6 +82,7 @@ pub async fn broadcast(pins: SharedPins, displays: SharedDisplays) {
     }
 }
 
+#[cfg(feature = "embedded-svc")]
 pub mod embedded_svc_impl {
     use core::future::Future;
 
