@@ -5,7 +5,7 @@ use embassy_futures::select::select3;
 use embassy_sync::blocking_mutex::raw::{NoopRawMutex, RawMutex};
 use embassy_sync::mutex::Mutex as AsyncMutex;
 
-use edge_net::asynch::channel::{Receiver, Sender};
+use channel_bridge::asynch::{Receiver, Sender};
 
 use crate::display::{Change as DisplayChange, SharedDisplay, SharedDisplays};
 use crate::gpio::{Change as PinChange, SharedPin, SharedPins};
@@ -66,13 +66,15 @@ where
 
             let mut pins = pins.lock().unwrap();
 
-            match request.payload() {
-                WebRequestPayload::PinInputUpdate(id, high) => {
-                    pins[*id as usize].pin_mut().set_discrete_input(*high);
-                }
-                WebRequestPayload::PinAnalogUpdate(id, input) => {
-                    pins[*id as usize].pin_mut().set_analog_input(*input);
-                }
+            match request {
+                WebRequest::PinInputUpdate(update) => match update {
+                    PinInputUpdate::Discrete(id, high) => {
+                        pins[id as usize].pin_mut().set_discrete_input(high);
+                    }
+                    PinInputUpdate::Analog(id, input) => {
+                        pins[id as usize].pin_mut().set_analog_input(input);
+                    }
+                },
             }
         }
     }
@@ -142,18 +144,16 @@ fn find_pin_change(pins: &SharedPins, changes: Option<&HandlerPinChanges>) -> Op
 
 fn consume_pin_change(id: u8, pin: &SharedPin, change: &mut PinChange) -> Option<WebEvent> {
     if *change != PinChange::None {
-        let event = Some(WebEvent::PinUpdate {
+        let event = Some(WebEvent::PinUpdate(PinUpdate {
             id,
-            update: PinUpdate {
-                meta: if *change == PinChange::Created {
-                    Some(pin.meta().clone())
-                } else {
-                    None
-                },
-                dropped: pin.dropped(),
-                value: *pin.value(),
+            meta: if *change == PinChange::Created {
+                Some(pin.meta().clone())
+            } else {
+                None
             },
-        });
+            dropped: pin.dropped(),
+            value: *pin.value(),
+        }));
 
         change.reset();
 
@@ -192,24 +192,20 @@ fn consume_display_change(
     change: &mut DisplayChange,
 ) -> Option<WebEvent> {
     let event = match change {
-        DisplayChange::Created => Some(WebEvent::DisplayUpdate {
+        DisplayChange::Created => Some(WebEvent::DisplayUpdate(DisplayUpdate {
             id,
-            update: DisplayUpdate {
-                meta: Some(display.meta().clone()),
-                dropped: display.dropped(),
-                screen: heapless::Vec::new(), // TODO
-            },
-        }),
+            meta: Some(display.meta().clone()),
+            dropped: display.dropped(),
+            screen: heapless::Vec::new(), // TODO
+        })),
         DisplayChange::Updated(changed_rows, dropped) => {
             if !changed_rows.is_empty() || *dropped {
-                Some(WebEvent::DisplayUpdate {
+                Some(WebEvent::DisplayUpdate(DisplayUpdate {
                     id,
-                    update: DisplayUpdate {
-                        meta: None,
-                        dropped: display.dropped(),
-                        screen: heapless::Vec::new(), // TODO
-                    },
-                })
+                    meta: None,
+                    dropped: display.dropped(),
+                    screen: heapless::Vec::new(), // TODO
+                }))
             } else {
                 None
             }

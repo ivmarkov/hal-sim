@@ -13,14 +13,20 @@ pub enum PinType {
     Analog,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+impl Default for PinType {
+    fn default() -> Self {
+        Self::Output
+    }
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 pub struct PinMeta {
     pub name: PinName,
     pub category: PinCategory,
     pub pin_type: PinType,
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum PinValue {
     Input(bool),
     Output(bool),

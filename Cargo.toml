@@ -4,23 +4,34 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = ["nightly", "ws", "ui"]
+default = ["nightly", "ws", "ui", "middleware-ws"]
 nightly = []
 sim = ["nb", "embedded-hal", "embedded-graphics-core"]
-web = ["sim", "futures", "embassy-futures", "embassy-sync"]
-ws = ["web", "edge-net"]
+web = ["sim", "futures", "embassy-futures", "embassy-sync", "channel-bridge"]
+ws = ["web", "channel-bridge"]
 ui = ["edge-frame"]
+middleware-ws = ["edge-frame?/middleware-ws"]
+middleware-local = ["edge-frame?/middleware-local", "embassy-sync"]
 
 [dependencies]
+serde = { version = "1", default-features = false }
+heapless = { version = "0.7", features = ["serde"] }
+
+# sim
 nb = { version = "1", optional = true }
 embedded-hal = { version = "0.2", features = ["unproven"], optional = true }
 embedded-graphics-core = { version = "0.3", optional = true }
-embedded-svc = { version = "0.23", default-features = false, git = "https://github.com/esp-rs/embedded-svc", features = ["experimental", "nightly"], optional = true }
-heapless = "0.7"
+
+# web
 futures = { version = "0.3", optional = true }
-postcard = "0.7"
-serde = { version = "1", default-features = false }
 embassy-futures = { version = "0.1", git = "https://github.com/ivmarkov/embassy", optional = true }
 embassy-sync = { version = "0.1", git = "https://github.com/ivmarkov/embassy", optional = true }
-edge-net = { version = "0.1", git = "https://github.com/ivmarkov/edge-net", features = ["nightly", "embassy-util", "embedded-svc"], optional = true }
+channel-bridge = { version = "0.1", git = "https://github.com/ivmarkov/channel-bridge", default-features = false, features = ["nightly", "embedded-svc"], optional = true }
+
+# ws
+embedded-svc = { version = "0.23", default-features = false, git = "https://github.com/esp-rs/embedded-svc", features = ["experimental", "nightly"], optional = true }
+
+# ui
+yew = { version = "0.19", default-features = false }
+yew-router = { version = "0.16" }
 edge-frame = { version = "0.3", git = "https://github.com/ivmarkov/edge-frame", optional = true }

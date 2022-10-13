@@ -4,6 +4,7 @@
     feature(generic_associated_types)
 )]
 #![cfg_attr(feature = "web", feature(type_alias_impl_trait))]
+#![cfg_attr(feature = "ui", recursion_limit = "1024")]
 
 #[cfg(feature = "sim")]
 pub mod adc;
