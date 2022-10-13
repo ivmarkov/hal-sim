@@ -27,9 +27,10 @@ impl Reducible for PinsState {
     type Action = PinAction;
 
     fn reduce(self: Rc<Self>, action: Self::Action) -> Rc<Self> {
+        let mut vec = self.0.clone();
+
         match action {
             Self::Action::Update(update) => Self({
-                let mut vec = self.0.clone();
                 while vec.len() <= update.id as _ {
                     vec.push(PinState {
                         meta: Rc::new(Default::default()),
@@ -50,8 +51,7 @@ impl Reducible for PinsState {
                 vec
             }),
             Self::Action::InputUpdate(update) => Self(
-                self.0
-                    .iter_mut()
+                vec.iter_mut()
                     .enumerate()
                     .map(|(index, state)| {
                         let mut state = state.clone();
