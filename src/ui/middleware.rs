@@ -10,9 +10,9 @@ use super::{
 pub fn from_event(_store: &UseStoreHandle<AppState>, event: &WebEvent) -> Option<AppAction> {
     match event {
         WebEvent::PinUpdate(update) => Some(AppAction::Pin(PinAction::Update(update.clone()))),
-        WebEvent::DisplayUpdate(update) => {
-            Some(AppAction::Display(ValueAction::Update(update.clone())))
-        }
+        WebEvent::DisplayUpdate(update) => Some(AppAction::Display(ValueAction::Update(Box::new(
+            update.clone(),
+        )))),
     }
 }
 

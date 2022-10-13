@@ -9,7 +9,7 @@ nightly = []
 sim = ["nb", "embedded-hal", "embedded-graphics-core"]
 web = ["sim", "futures", "embassy-futures", "embassy-sync", "channel-bridge"]
 ws = ["web", "channel-bridge"]
-ui = ["yew", "wasm-logger", "edge-frame"]
+ui = ["yew", "wasm-logger", "edge-frame", "itertools"]
 middleware-ws = ["edge-frame?/middleware-ws"]
 middleware-local = ["edge-frame?/middleware-local", "embassy-sync"]
 
@@ -35,3 +35,4 @@ embedded-svc = { version = "0.23", default-features = false, git = "https://gith
 yew = { version = "0.19", default-features = false, optional = true }
 edge-frame = { version = "0.3", git = "https://github.com/ivmarkov/edge-frame", optional = true }
 wasm-logger = { version = "0.2", optional = true }
+itertools = { version = "0.10", optional = true }

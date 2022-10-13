@@ -7,7 +7,7 @@ use yew::prelude::*;
 
 use edge_frame::redust::*;
 
-pub type DisplayAction = ValueAction<DisplayUpdate>;
+pub type DisplayAction = ValueAction<Box<DisplayUpdate>>;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DisplayState {
@@ -58,23 +58,36 @@ pub struct DisplaysProps<R: Reducible2> {
 #[function_component(Displays)]
 pub fn displays<R: Reducible2>(props: &DisplaysProps<R>) -> Html {
     let displays_store = use_projection(props.projection.clone());
+    let displays = &*displays_store;
 
-    // TODO: Use Display component
     html! {
-        {format!("{:?}", *displays_store)}
+        {
+            for displays.0.iter().enumerate().map(|(index, _)| {
+                html! {
+                    <Display<R> id={index as u8} projection={props.projection.clone()}/>
+                }
+            })
+        }
     }
 }
 
 #[derive(Properties, Clone, PartialEq)]
 pub struct DisplayProps<R: Reducible2> {
-    pub projection: Projection<R, DisplayState, DisplayAction>,
+    pub id: u8,
+    pub projection: Projection<R, DisplaysState, DisplayAction>,
 }
 
 #[function_component(Display)]
 pub fn display<R: Reducible2>(props: &DisplayProps<R>) -> Html {
-    let display_store = use_projection(props.projection.clone());
+    let displays_store = use_projection(props.projection.clone());
+    let display = &displays_store.0[props.id as usize];
 
     html! {
-        {format!("{:?}", *display_store)}
+        <article class="panel is-primary">
+            <p class="panel-heading">{ display.meta.name.clone() } { display.meta.width }{"x"}{ display.meta.height }</p>
+            <div class="panel-block">
+                <canvas width={display.meta.width.to_string()} height={display.meta.height.to_string()}/>
+            </div>
+        </article>
     }
 }

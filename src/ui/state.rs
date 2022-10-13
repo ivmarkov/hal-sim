@@ -40,11 +40,11 @@ impl Reducible for AppState {
         match action {
             AppAction::Pin(action) => Self {
                 pins: self.pins.clone().reduce(action),
-                ..(&*self).clone()
+                ..(*self).clone()
             },
             AppAction::Display(action) => Self {
                 displays: self.displays.clone().reduce(action),
-                ..(&*self).clone()
+                ..(*self).clone()
             },
         }
         .into()

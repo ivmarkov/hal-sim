@@ -3,10 +3,12 @@ use std::rc::Rc;
 use crate::dto::gpio::*;
 use crate::web::{PinInputUpdate, PinUpdate};
 
+use itertools::Itertools;
 use yew::prelude::*;
 
 use edge_frame::redust::*;
 
+#[allow(dead_code)] // TODO
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PinAction {
     Update(PinUpdate),
@@ -77,23 +79,68 @@ pub struct PinsProps<R: Reducible2> {
 #[function_component(Pins)]
 pub fn pins<R: Reducible2>(props: &PinsProps<R>) -> Html {
     let pins_store = use_projection(props.projection.clone());
+    let pins = &*pins_store;
 
-    // TODO: Use Pin component
     html! {
-        {format!("{:?}", *pins_store)}
+        {
+            for pins.0
+                .iter()
+                .enumerate()
+                .map(|(index, state)| (index, state.meta.category.as_str()))
+                .group_by(|(_, category)| *category)
+                .into_iter()
+                .map(|(category, group)| {
+                    (
+                        category.to_string(),
+                        group.map(|(index, _)| index as u8).collect::<Vec<_>>(),
+                    )
+                })
+                .map(|(category, pins)| html! {
+                    <PinsPanel<R> category={category} pins={pins} projection={props.projection.clone()}/>
+                })
+        }
+    }
+}
+
+#[derive(Properties, Clone, PartialEq)]
+pub struct PinsPanelProps<R: Reducible2> {
+    pub category: String,
+    pub pins: Vec<u8>,
+    pub projection: Projection<R, PinsState, PinAction>,
+}
+
+#[function_component(PinsPanel)]
+pub fn pins_panel<R: Reducible2>(props: &PinsPanelProps<R>) -> Html {
+    html! {
+        <article class="panel is-primary">
+            <p class="panel-heading">{ props.category.clone() }</p>
+
+            {
+                for props.pins.iter().map(|id| html! {
+                    <div class="panel-block">
+                        <Pin<R> id={*id} projection={props.projection.clone()}/>
+                    </div>
+                })
+            }
+        </article>
     }
 }
 
 #[derive(Properties, Clone, PartialEq)]
 pub struct PinProps<R: Reducible2> {
-    pub projection: Projection<R, PinState, PinAction>,
+    pub id: u8,
+    pub projection: Projection<R, PinsState, PinAction>,
 }
 
 #[function_component(Pin)]
 pub fn pin<R: Reducible2>(props: &PinProps<R>) -> Html {
-    let pin_store = use_projection(props.projection.clone());
+    let pins_store = use_projection(props.projection.clone());
+
+    let pin = &pins_store.0[props.id as usize];
 
     html! {
-        {format!("{:?}", *pin_store)}
+        {
+            pin.meta.name.clone()
+        }
     }
 }

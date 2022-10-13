@@ -41,9 +41,15 @@ pub fn app() -> Html {
     .unwrap();
 
     html! {
-        <ContextProvider<UseStoreHandle<AppState>> context={store.clone()}>
-            <Pins<AppState> projection={AppState::pins()}/>
-            <Displays<AppState> projection={AppState::displays()}/>
+        <ContextProvider<UseStoreHandle<AppState>> context={store}>
+            <div class="columns">
+                <div class="column">
+                    <Displays<AppState> projection={AppState::displays()}/>
+                </div>
+                <div class="column">
+                    <Pins<AppState> projection={AppState::pins()}/>
+                </div>
+            </div>
         </ContextProvider<UseStoreHandle<AppState>>>
     }
 }
