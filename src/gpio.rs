@@ -44,30 +44,56 @@ impl Pins {
         &self.shared
     }
 
-    pub fn input(&mut self, name: PinName, value: bool) -> Pin<Input> {
-        self.new_pin(name, PinValue::Input(value))
+    pub fn input(
+        &mut self,
+        name: impl Into<PinName>,
+        category: impl Into<PinCategory>,
+        value: bool,
+    ) -> Pin<Input> {
+        self.new_pin(name, category, PinValue::Input(value))
     }
 
-    pub fn output(&mut self, name: PinName, value: bool) -> Pin<Output> {
-        self.new_pin(name, PinValue::Output(value))
+    pub fn output(
+        &mut self,
+        name: impl Into<PinName>,
+        category: impl Into<PinCategory>,
+        value: bool,
+    ) -> Pin<Output> {
+        self.new_pin(name, category, PinValue::Output(value))
     }
 
-    pub fn input_output(&mut self, name: PinName, input: bool, output: bool) -> Pin<InputOutput> {
-        self.new_pin(name, PinValue::InputOutput { input, output })
+    pub fn input_output(
+        &mut self,
+        name: impl Into<PinName>,
+        category: impl Into<PinCategory>,
+        input: bool,
+        output: bool,
+    ) -> Pin<InputOutput> {
+        self.new_pin(name, category, PinValue::InputOutput { input, output })
     }
 
-    pub fn adc<ADC>(&mut self, name: PinName, value: u16) -> Pin<ADC>
+    pub fn adc<ADC>(
+        &mut self,
+        name: impl Into<PinName>,
+        category: impl Into<PinCategory>,
+        value: u16,
+    ) -> Pin<ADC>
     where
         ADC: AdcTrait,
     {
-        self.new_pin(name, PinValue::Adc(value))
+        self.new_pin(name, category, PinValue::Adc(value))
     }
 
-    fn new_pin<MODE>(&mut self, name: PinName, value: PinValue) -> Pin<MODE> {
+    fn new_pin<MODE>(
+        &mut self,
+        name: impl Into<PinName>,
+        category: impl Into<PinCategory>,
+        value: PinValue,
+    ) -> Pin<MODE> {
         let id = self.id_gen;
         self.id_gen += 1;
 
-        let state = PinState::new(name, "".into(), value);
+        let state = PinState::new(name.into(), category.into(), value);
 
         {
             let mut states = self.shared.lock().unwrap();
@@ -151,7 +177,8 @@ where
         };
 
         if changed {
-            (self.changed)()
+            // TODO XXX FIXME
+            //(self.changed)()
         }
     }
 }

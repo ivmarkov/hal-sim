@@ -14,6 +14,8 @@ pub mod dto;
 #[cfg(feature = "sim")]
 pub mod gpio;
 pub mod notification;
+#[cfg(feature = "sim")]
+pub mod peripherals;
 #[cfg(feature = "ui")]
 pub mod ui;
 #[cfg(feature = "web")]

@@ -7,7 +7,7 @@ use super::{
 
 pub type RequestId = usize;
 
-pub const RECT_MAX_DATA_SIZE: usize = 1024 * 1024;
+pub const RECT_MAX_DATA_SIZE: usize = 4; // TODO XXX FIXME 1024 * 1024;
 pub const SCREEN_MAX_RECT: usize = 6;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

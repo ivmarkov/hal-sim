@@ -40,7 +40,7 @@ static HANDLER_PIN_CHANGES: [Mutex<Vec<PinChange>>; WS_MAX_CONNECTIONS] =
 static HANDLER_DISPLAY_CHANGES: [Mutex<Vec<DisplayChange>>; WS_MAX_CONNECTIONS] =
     [DISPLAY_MUTEX; WS_MAX_CONNECTIONS];
 
-pub async fn broadcast(pins: SharedPins, displays: SharedDisplays) {
+pub async fn broadcast(pins: &SharedPins, displays: &SharedDisplays) {
     loop {
         web::NOTIFY.wait().await;
 
@@ -94,6 +94,7 @@ pub mod embedded_svc_impl {
     use crate::display::SharedDisplays;
     use crate::dto::web::{WebEvent, WebRequest};
     use crate::gpio::SharedPins;
+    use crate::peripherals::SharedPeripherals;
     use crate::web;
 
     struct WebHandler {
@@ -141,18 +142,17 @@ pub mod embedded_svc_impl {
 
     pub async fn accept<A: Acceptor, const W: usize>(
         acceptor: A,
-        pins: SharedPins,
-        displays: SharedDisplays,
+        shared_peripherals: SharedPeripherals,
     ) {
         embassy_futures::select::select(
             ws_channel::accept::<{ super::WS_MAX_CONNECTIONS }, 1, {super:: WS_MAX_FRAME_LEN }, _, _>(
                 acceptor,
                 WebHandler {
-                    pins: pins.clone(),
-                    displays: displays.clone(),
+                    pins: shared_peripherals.0.clone(),
+                    displays: shared_peripherals.1.clone(),
                 },
             ),
-            super::broadcast(pins, displays),
+            super::broadcast(&shared_peripherals.0, &shared_peripherals.1),
         )
         .await;
     }

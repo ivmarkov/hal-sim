@@ -12,7 +12,7 @@ pub trait AdcTrait {
 pub struct Adc<const ID: u8>(PhantomData<u8>);
 
 impl<const ID: u8> Adc<ID> {
-    pub const fn new() -> Self {
+    pub(crate) const fn new() -> Self {
         Self(PhantomData)
     }
 }

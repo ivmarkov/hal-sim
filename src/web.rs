@@ -12,20 +12,30 @@ use crate::gpio::{Change as PinChange, SharedPin, SharedPins};
 use crate::notification::Notification;
 
 pub use crate::dto::web::*;
+use crate::peripherals::SharedPeripherals;
 
-pub static NOTIFY: Notification = Notification::new();
+pub(crate) static NOTIFY: Notification = Notification::new();
 
-pub async fn process<S, R>(
-    sender: S,
-    receiver: R,
-    pins: SharedPins,
-    displays: SharedDisplays,
-) -> Result<(), S::Error>
+pub fn peripherals_callback() {
+    NOTIFY.notify();
+}
+
+pub async fn process<S, R>(sender: S, receiver: R, shared_peripherals: SharedPeripherals)
 where
     S: Sender<Data = WebEvent>,
     R: Receiver<Data = Option<WebRequest>, Error = S::Error>,
 {
-    handle(sender, receiver, &pins, None, &displays, None, &NOTIFY).await
+    handle(
+        sender,
+        receiver,
+        &shared_peripherals.0,
+        None,
+        &shared_peripherals.1,
+        None,
+        &NOTIFY,
+    )
+    .await
+    .unwrap();
 }
 
 pub type HandlerPinChanges = Mutex<Vec<PinChange>>;
@@ -96,7 +106,7 @@ where
 
         while let Some(event) = find_pin_change(pins, changes) {
             //info!("[WEB SEND] {:?}", event);
-            sender.send(&event).await?;
+            sender.send(event).await?;
         }
     }
 }
@@ -117,7 +127,7 @@ where
 
         while let Some(event) = find_display_change(displays, changes) {
             //info!("[WEB SEND] {:?}", event);
-            sender.send(&event).await?;
+            sender.send(event).await?;
         }
     }
 }

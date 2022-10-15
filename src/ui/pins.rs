@@ -1,4 +1,5 @@
-use std::rc::Rc;
+extern crate alloc;
+use alloc::rc::Rc;
 
 use crate::dto::gpio::*;
 use crate::web::{PinInputUpdate, PinUpdate};
