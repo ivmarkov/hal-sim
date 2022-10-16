@@ -85,7 +85,7 @@ pub fn display<R: Reducible2>(props: &DisplayProps<R>) -> Html {
 
     html! {
         <article class="panel is-primary">
-            <p class="panel-heading">{ display.meta.name.clone() } { display.meta.width }{"x"}{ display.meta.height }</p>
+            <p class="panel-heading">{ display.meta.name.clone() }{" "}{ display.meta.width }{"x"}{ display.meta.height }</p>
             <div class="panel-block">
                 <canvas width={display.meta.width.to_string()} height={display.meta.height.to_string()}/>
             </div>

@@ -177,8 +177,7 @@ where
         };
 
         if changed {
-            // TODO XXX FIXME
-            //(self.changed)()
+            (self.changed)()
         }
     }
 }

@@ -22,8 +22,14 @@ compile_error!("Only one of the features `middleware-ws` and `middleware-local` 
 #[cfg(not(any(feature = "middleware-ws", feature = "middleware-local")))]
 compile_error!("One of the features `middleware-ws` or `middleware-local` must be enabled.");
 
-#[function_component(App)]
-pub fn app() -> Html {
+#[derive(Properties, Clone, Default, Debug, PartialEq)]
+pub struct HalProps {
+    #[prop_or_default]
+    pub children: Children,
+}
+
+#[function_component(Hal)]
+pub fn hal(props: &HalProps) -> Html {
     #[cfg(feature = "middleware-ws")]
     let channel = channel("ws");
 
@@ -43,7 +49,7 @@ pub fn app() -> Html {
     )
     .unwrap();
 
-    html! {
+    let content = html! {
         <ContextProvider<UseStoreHandle<AppState>> context={store}>
             <div class="columns">
                 <div class="column">
@@ -54,6 +60,28 @@ pub fn app() -> Html {
                 </div>
             </div>
         </ContextProvider<UseStoreHandle<AppState>>>
+    };
+
+    if props.children.is_empty() {
+        content
+    } else {
+        html! {
+            <div class="columns m-4">
+                <div class="column">
+                    { content }
+                </div>
+                <div class="column">
+                    { for props.children.iter() }
+                </div>
+            </div>
+        }
+    }
+}
+
+#[function_component(App)]
+pub fn app() -> Html {
+    html! {
+        <Hal/>
     }
 }
 
