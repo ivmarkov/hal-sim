@@ -1,3 +1,5 @@
+use core::fmt::{self, Debug};
+
 use std::sync::Mutex;
 
 extern crate alloc;
@@ -8,6 +10,22 @@ use crate::display::{Displays, SharedDisplays};
 use crate::gpio::{Pins, SharedPins};
 
 pub type SharedPeripherals = (SharedPins, SharedDisplays);
+
+#[derive(Debug)]
+pub enum TakeError {
+    AlreadyTaken,
+}
+
+impl fmt::Display for TakeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::AlreadyTaken => write!(f, "Already taken Error"),
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl ::std::error::Error for TakeError {}
 
 static TAKEN: Mutex<bool> = Mutex::new(false);
 
@@ -21,11 +39,11 @@ pub struct Peripherals {
 }
 
 impl Peripherals {
-    pub fn take(changed: impl Fn() + 'static) -> Result<Self, ()> {
+    pub fn take(changed: impl Fn() + 'static) -> Result<Self, TakeError> {
         let mut taken = TAKEN.lock().unwrap();
 
         if *taken {
-            Err(())
+            Err(TakeError::AlreadyTaken)
         } else {
             let changed = Arc::new(changed);
             let changed_pins = changed.clone();
