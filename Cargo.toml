@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = ["nightly", "ws", "ui", "middleware-ws"]
+default = ["nightly", "ui", "web", "middleware-local"]
 nightly = []
 sim = ["nb", "embedded-hal", "embedded-graphics-core"]
 web = ["sim", "futures", "embassy-futures", "embassy-sync", "channel-bridge"]
