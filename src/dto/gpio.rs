@@ -6,11 +6,26 @@ pub type PinName = heapless::String<64>;
 pub type PinCategory = heapless::String<64>;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+pub enum ButtonType {
+    Toggle,
+    Click,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum PinType {
-    Input,
+    Input(ButtonType),
     Output,
-    InputOutput,
+    InputOutput(ButtonType),
     Analog,
+}
+
+impl PinType {
+    pub fn is_click(&self) -> bool {
+        matches!(
+            self,
+            Self::Input(ButtonType::Click) | Self::InputOutput(ButtonType::Click)
+        )
+    }
 }
 
 impl Default for PinType {
@@ -35,10 +50,16 @@ pub enum PinValue {
 }
 
 impl PinValue {
-    pub const fn pin_type(&self) -> PinType {
+    pub const fn pin_type(&self, button_type: Option<ButtonType>) -> PinType {
+        let button_type = if let Some(button_type) = button_type {
+            button_type
+        } else {
+            ButtonType::Toggle
+        };
+
         match self {
-            Self::Input(_) => PinType::Input,
-            Self::InputOutput { .. } => PinType::InputOutput,
+            Self::Input(_) => PinType::Input(button_type),
+            Self::InputOutput { .. } => PinType::InputOutput(button_type),
             Self::Output(_) => PinType::Output,
             Self::Adc(_) => PinType::Analog,
         }

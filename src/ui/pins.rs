@@ -165,36 +165,63 @@ pub fn pin<R: Reducible2>(props: &PinProps<R>) -> Html {
             let cb_pins_store = pins_store.clone();
             let id = props.id;
 
-            let onclick = Callback::from(move |event: MouseEvent| {
-                let pin = &cb_pins_store.0[id as usize];
-                let value = get_input_checked(event.into());
+            if pin.meta.pin_type.is_click() {
+                let onupdown = Callback::from(move |_| {
+                    let pin = &cb_pins_store.0[id as usize];
 
-                match pin.value {
-                    PinValue::Input(input) | PinValue::InputOutput { input, .. } => {
-                        if input != value {
+                    match pin.value {
+                        PinValue::Input(input) | PinValue::InputOutput { input, .. } => {
                             cb_pins_store.dispatch(PinAction::InputUpdate(
-                                PinInputUpdate::Discrete(id, value),
+                                PinInputUpdate::Discrete(id, !input),
                             ));
                         }
+                        _ => unreachable!(),
                     }
-                    _ => unreachable!(),
-                }
-            });
+                });
 
-            html! {
-                <>
+                html! {
                     <input
-                        class="switch is-rounded is-outlined is-small is-primary p-0 m-0"
-                        type="checkbox"
-                        id={format!("pin_switch_{}", props.id)}
-                        checked={input}
-                        {onclick}
+                        class="button is-outlined is-small is-primary"
+                        style="font-size: 8px;"
+                        type="button"
+                        value="Click"
+                        onmousedown={onupdown.clone()}
+                        onmouseup={onupdown}
                     />
-                    <label
-                        style="padding-left: 36px; height: 15px; line-height: 10px;"
-                        for={format!("pin_switch_{}", props.id)}>{ "" }
-                    </label>
-                </>
+                }
+            } else {
+                let onclick = Callback::from(move |event: MouseEvent| {
+                    let pin = &cb_pins_store.0[id as usize];
+
+                    let value = get_input_checked(event.into());
+
+                    match pin.value {
+                        PinValue::Input(input) | PinValue::InputOutput { input, .. } => {
+                            if input != value {
+                                cb_pins_store.dispatch(PinAction::InputUpdate(
+                                    PinInputUpdate::Discrete(id, value),
+                                ));
+                            }
+                        }
+                        _ => unreachable!(),
+                    }
+                });
+
+                html! {
+                    <>
+                        <input
+                            class="switch is-rounded is-outlined is-small is-primary p-0 m-0"
+                            type="checkbox"
+                            id={format!("pin_switch_{}", props.id)}
+                            checked={input}
+                            {onclick}
+                        />
+                        <label
+                            style="padding-left: 36px; height: 15px; line-height: 10px;"
+                            for={format!("pin_switch_{}", props.id)}>{ "" }
+                        </label>
+                    </>
+                }
             }
         }),
         PinValue::Adc(value) => (value > 0, {
