@@ -7,8 +7,8 @@ use super::{
 
 pub type RequestId = usize;
 
-pub const RECT_MAX_DATA_SIZE: usize = 4; // TODO XXX FIXME 1024 * 1024;
-pub const SCREEN_MAX_RECT: usize = 6;
+pub const SCREEN_MAX_STRIPE_LEN: usize = 320; // Stripes and overall WebEvents get allocated on the stack, so we want to keep these small
+pub const SCREEN_MAX_STRIPE_U8_LEN: usize = SCREEN_MAX_STRIPE_LEN * core::mem::size_of::<u32>();
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum WebRequest {
@@ -59,15 +59,29 @@ pub struct PinUpdate {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct DisplayUpdate {
-    pub id: u8,
-    pub meta: Option<DisplayMeta>,
-    pub dropped: bool,
-    pub screen: heapless::Vec<ScreenUpdate, { SCREEN_MAX_RECT }>,
+pub enum DisplayUpdate {
+    MetaUpdate {
+        id: u8,
+        meta: Option<DisplayMeta>,
+        dropped: bool,
+    },
+    StripeUpdate(StripeUpdate),
+}
+
+impl DisplayUpdate {
+    pub fn id(&self) -> u8 {
+        match self {
+            Self::MetaUpdate { id, .. } => *id,
+            Self::StripeUpdate(StripeUpdate { id, .. }) => *id,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
-pub struct ScreenUpdate {
-    pub rect: (usize, usize, usize, usize),
-    pub data: heapless::Vec<u8, { RECT_MAX_DATA_SIZE }>,
+pub struct StripeUpdate {
+    pub id: u8,
+    pub row: u16,
+    pub start: u16,
+    pub end: u16,
+    pub data: heapless::Vec<u8, { SCREEN_MAX_STRIPE_U8_LEN }>,
 }

@@ -3,38 +3,45 @@ use alloc::rc::Rc;
 
 use itertools::Itertools;
 
+use super::yewdux_middleware::*;
 use yew::prelude::*;
 
-use edge_frame::redust::*;
 use edge_frame::util::{get_input_checked, get_input_text};
 
 use crate::dto::gpio::*;
-use crate::web::{PinInputUpdate, PinUpdate};
+use crate::web::{PinInputUpdate, PinUpdate, WebEvent, WebRequest};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum PinAction {
+pub enum PinMsg {
     Update(PinUpdate),
     InputUpdate(PinInputUpdate),
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct PinState {
-    pub meta: Rc<PinMeta>,
-    pub dropped: bool,
-    pub value: PinValue,
+impl PinMsg {
+    pub fn from_event(event: &WebEvent) -> Option<Self> {
+        match event {
+            WebEvent::PinUpdate(update) => Some(Self::Update(update.clone())),
+            _ => None,
+        }
+    }
 }
 
-#[derive(Debug, Default, PartialEq, Eq, Clone)]
-pub struct PinsState(Vec<PinState>);
+impl<'a> From<&'a PinMsg> for Option<WebRequest> {
+    fn from(value: &'a PinMsg) -> Self {
+        match value {
+            PinMsg::InputUpdate(update) => Some(WebRequest::PinInputUpdate(update.clone())),
+            _ => None,
+        }
+    }
+}
 
-impl Reducible for PinsState {
-    type Action = PinAction;
+impl Reducer<PinsState> for PinMsg {
+    fn apply(&self, mut store: Rc<PinsState>) -> Rc<PinsState> {
+        let state = Rc::make_mut(&mut store);
+        let vec = &mut state.0;
 
-    fn reduce(self: Rc<Self>, action: Self::Action) -> Rc<Self> {
-        let mut vec = self.0.clone();
-
-        match action {
-            Self::Action::Update(update) => Self({
+        match self {
+            Self::Update(update) => {
                 while vec.len() <= update.id as _ {
                     vec.push(PinState {
                         meta: Rc::new(Default::default()),
@@ -45,43 +52,41 @@ impl Reducible for PinsState {
 
                 let state: &mut PinState = &mut vec[update.id as usize];
 
-                if let Some(meta) = update.meta {
-                    state.meta = Rc::new(meta);
+                if let Some(meta) = &update.meta {
+                    state.meta = Rc::new(meta.clone());
                 }
 
                 state.dropped = update.dropped;
                 state.value = update.value;
-
-                vec
-            }),
-            Self::Action::InputUpdate(update) => Self(
-                vec.iter_mut()
-                    .enumerate()
-                    .map(|(index, state)| {
-                        let mut state = state.clone();
-
-                        if index == update.id() as usize {
-                            update.update_value(&mut state.value);
-                        }
-
-                        state
-                    })
-                    .collect::<Vec<_>>(),
-            ),
+            }
+            Self::InputUpdate(update) => {
+                for (id, pin) in vec.iter_mut().enumerate() {
+                    if id == update.id() as usize {
+                        update.update_value(&mut pin.value);
+                    }
+                }
+            }
         }
-        .into()
+
+        store
     }
 }
 
-#[derive(Properties, Clone, PartialEq)]
-pub struct PinsProps<R: Reducible2> {
-    pub projection: Projection<R, PinsState, PinAction>,
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PinState {
+    pub meta: Rc<PinMeta>,
+    pub dropped: bool,
+    pub value: PinValue,
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq, Store)]
+pub struct PinsState(Vec<PinState>);
+
 #[function_component(Pins)]
-pub fn pins<R: Reducible2>(props: &PinsProps<R>) -> Html {
-    let pins_store = use_projection(props.projection.clone());
-    let pins = &*pins_store;
+pub fn pins() -> Html {
+    let pins = use_store::<PinsState>();
+
+    let pins = &*pins;
 
     html! {
         {
@@ -94,25 +99,24 @@ pub fn pins<R: Reducible2>(props: &PinsProps<R>) -> Html {
                 .map(|(category, group)| {
                     (
                         category.to_string(),
-                        group.map(|(index, _)| index as u8).collect::<Vec<_>>(),
+                        group.map(|(index, _)| (index as u8)).collect::<Vec<_>>(),
                     )
                 })
                 .map(|(category, pins)| html! {
-                    <PinsPanel<R> category={category} pins={pins} projection={props.projection.clone()}/>
+                    <PinsPanel category={category} pins={pins}/>
                 })
         }
     }
 }
 
 #[derive(Properties, Clone, PartialEq)]
-pub struct PinsPanelProps<R: Reducible2> {
+pub struct PinsPanelProps {
     pub category: String,
     pub pins: Vec<u8>,
-    pub projection: Projection<R, PinsState, PinAction>,
 }
 
 #[function_component(PinsPanel)]
-pub fn pins_panel<R: Reducible2>(props: &PinsPanelProps<R>) -> Html {
+pub fn pins_panel(props: &PinsPanelProps) -> Html {
     html! {
         <article class="panel is-primary is-size-7">
             <p class="panel-heading">{ props.category.clone() }</p>
@@ -120,7 +124,7 @@ pub fn pins_panel<R: Reducible2>(props: &PinsPanelProps<R>) -> Html {
             {
                 for props.pins.iter().map(|id| html! {
                     <div class="panel-block is-flex">
-                        <Pin<R> id={*id} projection={props.projection.clone()}/>
+                        <Pin id={*id}/>
                     </div>
                 })
             }
@@ -129,16 +133,15 @@ pub fn pins_panel<R: Reducible2>(props: &PinsPanelProps<R>) -> Html {
 }
 
 #[derive(Properties, Clone, PartialEq)]
-pub struct PinProps<R: Reducible2> {
+pub struct PinProps {
     pub id: u8,
-    pub projection: Projection<R, PinsState, PinAction>,
 }
 
 #[function_component(Pin)]
-pub fn pin<R: Reducible2>(props: &PinProps<R>) -> Html {
-    let pins_store = use_projection(props.projection.clone());
+pub fn pin(props: &PinProps) -> Html {
+    let pins = use_store::<PinsState>();
 
-    let pin = &pins_store.0[props.id as usize];
+    let pin: &PinState = &pins.0[props.id as usize];
 
     let (pin_output_high, pin_output_html) = match pin.value {
         PinValue::Output(output) | PinValue::InputOutput { output, .. } => (
@@ -162,18 +165,18 @@ pub fn pin<R: Reducible2>(props: &PinProps<R>) -> Html {
 
     let (pin_input_high, pin_input_html) = match pin.value {
         PinValue::Input(input) | PinValue::InputOutput { input, .. } => (input, {
-            let cb_pins_store = pins_store.clone();
             let id = props.id;
+            let pins = pins.clone();
 
             if pin.meta.pin_type.is_click() {
                 let onupdown = Callback::from(move |_| {
-                    let pin = &cb_pins_store.0[id as usize];
+                    let pin: &PinState = &pins.0[id as usize];
 
                     match pin.value {
                         PinValue::Input(input) | PinValue::InputOutput { input, .. } => {
-                            cb_pins_store.dispatch(PinAction::InputUpdate(
-                                PinInputUpdate::Discrete(id, !input),
-                            ));
+                            dispatch::invoke(PinMsg::InputUpdate(PinInputUpdate::Discrete(
+                                id, !input,
+                            )));
                         }
                         _ => unreachable!(),
                     }
@@ -182,7 +185,7 @@ pub fn pin<R: Reducible2>(props: &PinProps<R>) -> Html {
                 html! {
                     <input
                         class="button is-outlined is-small is-primary"
-                        style="font-size: 8px;"
+                        style="font-size: 9px;"
                         type="button"
                         value="Click"
                         onmousedown={onupdown.clone()}
@@ -190,17 +193,19 @@ pub fn pin<R: Reducible2>(props: &PinProps<R>) -> Html {
                     />
                 }
             } else {
-                let onclick = Callback::from(move |event: MouseEvent| {
-                    let pin = &cb_pins_store.0[id as usize];
+                let id = props.id;
+                let pins = pins.clone();
 
+                let onclick = Callback::from(move |event: MouseEvent| {
                     let value = get_input_checked(event.into());
+                    let pin: &PinState = &pins.0[id as usize];
 
                     match pin.value {
                         PinValue::Input(input) | PinValue::InputOutput { input, .. } => {
                             if input != value {
-                                cb_pins_store.dispatch(PinAction::InputUpdate(
-                                    PinInputUpdate::Discrete(id, value),
-                                ));
+                                dispatch::invoke(PinMsg::InputUpdate(PinInputUpdate::Discrete(
+                                    id, value,
+                                )));
                             }
                         }
                         _ => unreachable!(),
@@ -225,17 +230,17 @@ pub fn pin<R: Reducible2>(props: &PinProps<R>) -> Html {
             }
         }),
         PinValue::Adc(value) => (value > 0, {
-            let cb_pins_store = pins_store.clone();
             let id = props.id;
+            let pins = pins.clone();
 
             let oninput = Callback::from(move |event: InputEvent| {
-                let pin = &cb_pins_store.0[id as usize];
                 let value = str::parse::<u16>(&get_input_text(event.into())).unwrap();
+                let pin: &PinState = &pins.0[id as usize];
 
                 match pin.value {
                     PinValue::Adc(input) => {
                         if input != value {
-                            cb_pins_store.dispatch(PinAction::InputUpdate(PinInputUpdate::Analog(
+                            dispatch::invoke(PinMsg::InputUpdate(PinInputUpdate::Analog(
                                 id, value,
                             )));
                         }
@@ -246,10 +251,10 @@ pub fn pin<R: Reducible2>(props: &PinProps<R>) -> Html {
 
             html! {
                 <>
-                    <input class="input ml-4 is-small" type="text" style="width: 50px;" disabled={true} value={value.to_string()}/>
+                    <input class="input ml-4 is-small py-0" type="text" style="width: 50px;" disabled={true} value={value.to_string()}/>
                     <input
                         class="slider is-circle is-small is-primary p-0 ml-2 mr-0 my-0"
-                        style="width: 70px;" step="1" min="0" max="100"
+                        style="font-size: 9px; width: 70px;" step="1" min="0" max="100"
                         value={value.to_string()}
                         type="range"
                         {oninput}

@@ -1,6 +1,8 @@
 use std::sync::Mutex;
 
-use embassy_futures::select::select3;
+use log::info;
+
+use embassy_futures::select::select;
 
 use embassy_sync::blocking_mutex::raw::{NoopRawMutex, RawMutex};
 use embassy_sync::mutex::Mutex as AsyncMutex;
@@ -56,10 +58,16 @@ where
 {
     let sender = AsyncMutex::<NoopRawMutex, _>::new(sender);
 
-    select3(
+    select(
         receive(receiver, pins),
-        send_pin_state(&sender, pins, pins_changes, notification),
-        send_display_state(&sender, displays, displays_changes, notification),
+        send_state(
+            &sender,
+            pins,
+            pins_changes,
+            displays,
+            displays_changes,
+            notification,
+        ),
     )
     .await;
 
@@ -72,7 +80,7 @@ where
 {
     loop {
         if let Some(request) = receiver.recv().await? {
-            //info!("[WEB RECEIVE] {:?}", request);
+            info!("[WEB RECEIVE] {:?}", request);
 
             let mut pins = pins.lock().unwrap();
 
@@ -90,10 +98,12 @@ where
     }
 }
 
-async fn send_pin_state<'a, S>(
+async fn send_state<'a, S>(
     sender: &AsyncMutex<impl RawMutex, S>,
     pins: &SharedPins,
-    changes: Option<&HandlerPinChanges>,
+    pins_changes: Option<&HandlerPinChanges>,
+    displays: &SharedDisplays,
+    displays_changes: Option<&HandlerDisplayChanges>,
     notification: &Notification,
 ) -> Result<(), S::Error>
 where
@@ -104,29 +114,13 @@ where
 
         let mut sender = sender.lock().await;
 
-        while let Some(event) = find_pin_change(pins, changes) {
-            //info!("[WEB SEND] {:?}", event);
+        while let Some(event) = find_pin_change(pins, pins_changes) {
+            info!("[WEB SEND] {:?}", event);
             sender.send(event).await?;
         }
-    }
-}
 
-async fn send_display_state<S>(
-    sender: &AsyncMutex<impl RawMutex, S>,
-    displays: &SharedDisplays,
-    changes: Option<&HandlerDisplayChanges>,
-    notification: &Notification,
-) -> Result<(), S::Error>
-where
-    S: Sender<Data = WebEvent>,
-{
-    loop {
-        notification.wait().await;
-
-        let mut sender = sender.lock().await;
-
-        while let Some(event) = find_display_change(displays, changes) {
-            //info!("[WEB SEND] {:?}", event);
+        while let Some(event) = find_display_change(displays, displays_changes) {
+            info!("[WEB SEND] {:?}", event);
             sender.send(event).await?;
         }
     }
@@ -201,28 +195,47 @@ fn consume_display_change(
     display: &SharedDisplay,
     change: &mut DisplayChange,
 ) -> Option<WebEvent> {
-    let event = match change {
-        DisplayChange::Created => Some(WebEvent::DisplayUpdate(DisplayUpdate {
+    if change.created || change.dropped {
+        let event = Some(WebEvent::DisplayUpdate(DisplayUpdate::MetaUpdate {
             id,
-            meta: Some(display.meta().clone()),
+            meta: change.created.then_some(display.meta().clone()),
             dropped: display.dropped(),
-            screen: heapless::Vec::new(), // TODO
-        })),
-        DisplayChange::Updated(changed_rows, dropped) => {
-            if !changed_rows.is_empty() || *dropped {
-                Some(WebEvent::DisplayUpdate(DisplayUpdate {
+        }));
+
+        change.created = false;
+        change.dropped = false;
+
+        event
+    } else {
+        let changed_row = change
+            .screen_updates
+            .iter_mut()
+            .enumerate()
+            .find_map(|(row, (start, end))| (*start < *end).then_some((row, start, end)));
+
+        if let Some((row, start, end)) = changed_row {
+            let event = Some(WebEvent::DisplayUpdate(DisplayUpdate::StripeUpdate(
+                StripeUpdate {
                     id,
-                    meta: None,
-                    dropped: display.dropped(),
-                    screen: heapless::Vec::new(), // TODO
-                }))
-            } else {
-                None
-            }
+                    row: row as _,
+                    start: *start as _,
+                    end: *end as _,
+                    data: {
+                        let row_data = &display.buffer()[row * display.meta().width..];
+
+                        row_data[*start..*end].iter()
+                        .flat_map(|pixel| pixel.to_be_bytes())
+                        .collect::<heapless::Vec<_, { crate::dto::web::SCREEN_MAX_STRIPE_U8_LEN }>>()
+                    },
+                },
+            )));
+
+            *start = 0;
+            *end = 0;
+
+            event
+        } else {
+            None
         }
-    };
-
-    change.reset();
-
-    event
+    }
 }

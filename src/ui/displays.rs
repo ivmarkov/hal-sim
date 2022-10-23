@@ -1,71 +1,95 @@
+use core::fmt::Debug;
+
 extern crate alloc;
 use alloc::rc::Rc;
 
-use crate::dto::display::*;
-use crate::web::DisplayUpdate;
+use log::warn;
 
+use super::yewdux_middleware::*;
 use yew::prelude::*;
 
-use edge_frame::redust::*;
+use wasm_bindgen_futures::spawn_local;
 
-pub type DisplayAction = ValueAction<Box<DisplayUpdate>>;
+use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
+use embassy_sync::channel;
+
+use wasm_bindgen::{Clamped, JsCast};
+use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, ImageData};
+
+use crate::dto::display::*;
+use crate::web::{DisplayUpdate, StripeUpdate, WebEvent, WebRequest};
+
+#[derive(Debug)]
+pub struct DisplayMsg(pub DisplayUpdate);
+
+impl DisplayMsg {
+    pub fn from_event(event: &WebEvent) -> Option<Self> {
+        match event {
+            WebEvent::DisplayUpdate(update) => Some(Self(update.clone())),
+            _ => None,
+        }
+    }
+}
+
+impl<'a> From<&'a DisplayMsg> for Option<WebRequest> {
+    fn from(_value: &'a DisplayMsg) -> Self {
+        None
+    }
+}
+
+impl Reducer<DisplaysState> for DisplayMsg {
+    fn apply(&self, mut store: Rc<DisplaysState>) -> Rc<DisplaysState> {
+        let state = Rc::make_mut(&mut store);
+        let vec = &mut state.0;
+
+        match self {
+            Self(DisplayUpdate::MetaUpdate { id, meta, dropped }) => {
+                while vec.len() <= *id as _ {
+                    vec.push(DisplayState {
+                        meta: Rc::new(Default::default()),
+                        dropped: false,
+                        render_cycle: 0,
+                    });
+                }
+
+                let display: &mut DisplayState = &mut vec[*id as usize];
+                if let Some(meta) = meta {
+                    display.meta = Rc::new(meta.clone());
+                }
+
+                display.dropped = *dropped;
+            }
+            Self(DisplayUpdate::StripeUpdate(StripeUpdate { id, .. })) => {
+                let display: &mut DisplayState = &mut vec[*id as usize];
+
+                display.render_cycle += 1;
+            }
+        }
+
+        store
+    }
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DisplayState {
     pub meta: Rc<DisplayMeta>,
     pub dropped: bool,
-    pub screen: Vec<u32>,
+    pub render_cycle: u32,
 }
 
-#[derive(Debug, Default, PartialEq, Eq, Clone)]
+#[derive(Debug, Default, PartialEq, Eq, Clone, Store)]
 pub struct DisplaysState(Vec<DisplayState>);
 
-impl Reducible for DisplaysState {
-    type Action = DisplayAction;
-
-    fn reduce(self: Rc<Self>, action: Self::Action) -> Rc<Self> {
-        match action {
-            Self::Action::Update(update) => Self({
-                let mut vec = self.0.clone();
-                while vec.len() <= update.id as _ {
-                    vec.push(DisplayState {
-                        meta: Rc::new(Default::default()),
-                        dropped: false,
-                        screen: Vec::new(),
-                    });
-                }
-
-                let state: &mut DisplayState = &mut vec[update.id as usize];
-
-                if let Some(meta) = update.meta {
-                    state.meta = Rc::new(meta);
-                }
-
-                state.dropped = update.dropped;
-                //state.value = update.value;
-
-                vec
-            }),
-        }
-        .into()
-    }
-}
-
-#[derive(Properties, Clone, PartialEq)]
-pub struct DisplaysProps<R: Reducible2> {
-    pub projection: Projection<R, DisplaysState, DisplayAction>,
-}
-
 #[function_component(Displays)]
-pub fn displays<R: Reducible2>(props: &DisplaysProps<R>) -> Html {
-    let displays_store = use_projection(props.projection.clone());
-    let displays = &*displays_store;
+pub fn displays() -> Html {
+    let displays = use_store::<DisplaysState>();
+    let displays = &*displays;
 
     html! {
         {
             for displays.0.iter().enumerate().map(|(index, _)| {
                 html! {
-                    <Display<R> id={index as u8} projection={props.projection.clone()}/>
+                    <Display id={index as u8}/>
                 }
             })
         }
@@ -73,22 +97,105 @@ pub fn displays<R: Reducible2>(props: &DisplaysProps<R>) -> Html {
 }
 
 #[derive(Properties, Clone, PartialEq)]
-pub struct DisplayProps<R: Reducible2> {
+pub struct DisplayProps {
     pub id: u8,
-    pub projection: Projection<R, DisplaysState, DisplayAction>,
 }
 
 #[function_component(Display)]
-pub fn display<R: Reducible2>(props: &DisplayProps<R>) -> Html {
-    let displays_store = use_projection(props.projection.clone());
-    let display = &displays_store.0[props.id as usize];
+pub fn display(props: &DisplayProps) -> Html {
+    let displays = use_store::<DisplaysState>();
+    let display = &displays.0[props.id as usize];
 
     html! {
-        <article class="panel is-primary">
+        <article class="panel is-primary is-size-7">
             <p class="panel-heading">{ display.meta.name.clone() }{" "}{ display.meta.width }{"x"}{ display.meta.height }</p>
             <div class="panel-block">
-                <canvas width={display.meta.width.to_string()} height={display.meta.height.to_string()}/>
+                <DisplayCanvas
+                    id={props.id}
+                    width={display.meta.width}
+                    height={display.meta.height}
+                />
             </div>
         </article>
     }
+}
+
+#[derive(Properties, Clone, PartialEq)]
+pub struct DisplayCanvasProps {
+    pub id: u8,
+    pub width: usize,
+    pub height: usize,
+}
+
+#[function_component(DisplayCanvas)]
+pub fn display_canvas(props: &DisplayCanvasProps) -> Html {
+    let node_ref = use_node_ref();
+
+    {
+        let id = props.id;
+        let width = props.width;
+
+        use_effect(move || {
+            spawn_local(async move {
+                loop {
+                    let update = DISPLAY_QUEUE[id as usize].recv().await;
+
+                    warn!("About to draw: {:?}", update);
+
+                    let canvas = node_ref.cast::<HtmlCanvasElement>().unwrap();
+
+                    let ctx: CanvasRenderingContext2d = canvas
+                        .get_context("2d")
+                        .unwrap()
+                        .unwrap()
+                        .dyn_into()
+                        .unwrap();
+
+                    let image_data = ImageData::new_with_u8_clamped_array_and_sh(
+                        Clamped(&update.data),
+                        width as _,
+                        1,
+                    )
+                    .unwrap();
+
+                    ctx.put_image_data(&image_data, update.start as _, update.row as _)
+                        .unwrap();
+
+                    warn!("Drawing complete");
+                }
+            });
+
+            || ()
+        });
+    }
+
+    html! {
+        <canvas width={props.width.to_string()} height={props.height.to_string()}/>
+    }
+}
+
+const CHANNEL: channel::Channel<CriticalSectionRawMutex, StripeUpdate, 1> = channel::Channel::new();
+static DISPLAY_QUEUE: [channel::Channel<CriticalSectionRawMutex, StripeUpdate, 1>; 8] =
+    [CHANNEL; 8];
+
+pub fn draw<D>(msg: DisplayMsg, dispatch: D)
+where
+    D: Dispatch<DisplayMsg>,
+{
+    warn!("Draw dispatching: {:?}", msg);
+
+    match &msg {
+        DisplayMsg(DisplayUpdate::StripeUpdate(update)) => {
+            let update = update.clone();
+
+            spawn_local(async move {
+                warn!("About to send draw update: {:?}", update);
+
+                DISPLAY_QUEUE[update.id as usize].send(update).await;
+            });
+        }
+        _ => (),
+    }
+
+    dispatch.invoke(msg);
 }

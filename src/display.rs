@@ -35,7 +35,7 @@ impl Displays {
 
     pub fn display<C>(
         &mut self,
-        name: DisplayName,
+        name: impl Into<DisplayName>,
         width: usize,
         height: usize,
         converter: impl Fn(C) -> u32 + 'static,
@@ -46,7 +46,7 @@ impl Displays {
         let id = self.id_gen;
         self.id_gen += 1;
 
-        let state = DisplayState::new(name, width, height);
+        let state = DisplayState::new(name.into(), width, height);
 
         {
             let mut states = self.shared.lock().unwrap();
@@ -93,7 +93,7 @@ impl<C> Drop for Display<C> {
             let state = &mut guard[self.id as usize];
 
             state.display.dropped = true;
-            state.change.update(&Change::Updated(Vec::new(), true));
+            state.change.dropped = true;
         }
 
         (self.changed)();
@@ -155,7 +155,11 @@ impl DisplayState {
     fn new(name: DisplayName, width: usize, height: usize) -> Self {
         Self {
             display: SharedDisplay::new(name, width, height),
-            change: Change::Created,
+            change: Change {
+                created: true,
+                dropped: false,
+                screen_updates: Vec::new(),
+            },
         }
     }
 
@@ -241,52 +245,35 @@ impl SharedDisplay {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum Change {
-    Created,
-    Updated(Vec<(usize, usize)>, bool),
+pub struct Change {
+    pub created: bool,
+    pub dropped: bool,
+    pub screen_updates: Vec<(usize, usize)>,
 }
 
 impl Change {
-    pub fn reset(&mut self) {
-        *self = Self::Updated(Vec::new(), false);
-    }
-
     pub fn update(&mut self, other: &Self) {
-        match self {
-            Self::Created => (),
-            Self::Updated(_, dropped) => match other {
-                Self::Created => *self = Self::Created,
-                Self::Updated(other_rows, other_dropped) => {
-                    *dropped = *dropped || *other_dropped;
+        self.created |= other.created;
+        self.dropped |= other.dropped;
 
-                    for (i, other_row) in other_rows.iter().enumerate() {
-                        self.update_row(i, other_row.0, other_row.1);
-                    }
-                }
-            },
+        for (i, other_row) in other.screen_updates.iter().enumerate() {
+            self.update_row(i, other_row.0, other_row.1);
         }
     }
 
     pub fn update_row(&mut self, index: usize, start: usize, end: usize) {
-        match self {
-            Self::Created => (),
-            Self::Updated(rows, _) => {
-                if start < end {
-                    while rows.len() <= index {
-                        rows.push((0, 0));
-                    }
+        if start < end {
+            while self.screen_updates.len() <= index {
+                self.screen_updates.push((0, 0));
+            }
 
-                    let row = &mut rows[index];
+            let row = &mut self.screen_updates[index];
 
-                    if row.0 < row.1 {
-                        if start < end {
-                            row.0 = min(row.0, start);
-                            row.1 = max(row.1, end);
-                        }
-                    } else {
-                        *row = (start, end);
-                    }
-                }
+            if row.0 < row.1 {
+                row.0 = min(row.0, start);
+                row.1 = max(row.1, end);
+            } else {
+                *row = (start, end);
             }
         }
     }
