@@ -2,7 +2,7 @@ use core::fmt::Debug;
 
 use log::{log, Level};
 
-use super::yewdux_middleware::*;
+use yewdux_middleware::*;
 
 #[cfg(feature = "middleware-local")]
 pub use local::*;
@@ -51,7 +51,7 @@ mod local {
 
     use embassy_sync::channel;
 
-    use crate::ui::yewdux_middleware::*;
+    use yewdux_middleware::*;
 
     pub fn send<M>(sender: impl Into<channel::DynamicSender<'static, M>>) -> impl Fn(M)
     where

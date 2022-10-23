@@ -1,12 +1,13 @@
 use core::fmt::Debug;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 extern crate alloc;
 use alloc::rc::Rc;
 
-use log::warn;
+use log::{info, warn};
 
-use super::yewdux_middleware::*;
 use yew::prelude::*;
+use yewdux_middleware::*;
 
 use wasm_bindgen_futures::spawn_local;
 
@@ -14,7 +15,7 @@ use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel;
 
 use wasm_bindgen::{Clamped, JsCast};
-use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, ImageData};
+use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, HtmlElement, ImageData};
 
 use crate::dto::display::*;
 use crate::web::{DisplayUpdate, StripeUpdate, WebEvent, WebRequest};
@@ -70,15 +71,15 @@ impl Reducer<DisplaysState> for DisplayMsg {
     }
 }
 
+#[derive(Debug, Default, PartialEq, Eq, Clone, Store)]
+pub struct DisplaysState(Vec<DisplayState>);
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DisplayState {
     pub meta: Rc<DisplayMeta>,
     pub dropped: bool,
     pub render_cycle: u32,
 }
-
-#[derive(Debug, Default, PartialEq, Eq, Clone, Store)]
-pub struct DisplaysState(Vec<DisplayState>);
 
 #[function_component(Displays)]
 pub fn displays() -> Html {
@@ -89,7 +90,7 @@ pub fn displays() -> Html {
         {
             for displays.0.iter().enumerate().map(|(index, _)| {
                 html! {
-                    <Display id={index as u8}/>
+                    <Display id={index as u8} key={index}/>
                 }
             })
         }
@@ -132,66 +133,79 @@ pub fn display_canvas(props: &DisplayCanvasProps) -> Html {
     let node_ref = use_node_ref();
 
     {
+        let node_ref = node_ref.clone();
+
         let id = props.id;
         let width = props.width;
 
-        use_effect(move || {
-            spawn_local(async move {
-                loop {
-                    let update = DISPLAY_QUEUE[id as usize].recv().await;
+        use_effect_with_deps(
+            move |_| {
+                spawn_local(async move {
+                    warn!("About to start drawing loop");
+                    //READY.store(true, Ordering::SeqCst);
 
-                    warn!("About to draw: {:?}", update);
+                    loop {
+                        let update = DISPLAY_QUEUE[0].recv().await;
 
-                    let canvas = node_ref.cast::<HtmlCanvasElement>().unwrap();
+                        let canvas = node_ref.cast::<HtmlCanvasElement>().unwrap();
 
-                    let ctx: CanvasRenderingContext2d = canvas
-                        .get_context("2d")
-                        .unwrap()
-                        .unwrap()
-                        .dyn_into()
+                        let ctx: CanvasRenderingContext2d = canvas
+                            .get_context("2d")
+                            .unwrap()
+                            .unwrap()
+                            .dyn_into()
+                            .unwrap();
+
+                        let image_data = ImageData::new_with_u8_clamped_array_and_sh(
+                            Clamped(&update.data),
+                            (update.end - update.start) as _,
+                            1,
+                        )
                         .unwrap();
 
-                    let image_data = ImageData::new_with_u8_clamped_array_and_sh(
-                        Clamped(&update.data),
-                        width as _,
-                        1,
-                    )
-                    .unwrap();
+                        ctx.put_image_data(&image_data, update.start as _, update.row as _)
+                            .unwrap();
 
-                    ctx.put_image_data(&image_data, update.start as _, update.row as _)
-                        .unwrap();
+                        info!("Drawing complete");
+                    }
+                });
 
-                    warn!("Drawing complete");
+                move || {
+                    READY.store(false, Ordering::SeqCst);
                 }
-            });
-
-            || ()
-        });
+            },
+            1,
+        );
     }
 
     html! {
-        <canvas width={props.width.to_string()} height={props.height.to_string()}/>
+        <canvas ref={node_ref} width={props.width.to_string()} height={props.height.to_string()}/>
     }
 }
 
-const CHANNEL: channel::Channel<CriticalSectionRawMutex, StripeUpdate, 1> = channel::Channel::new();
-static DISPLAY_QUEUE: [channel::Channel<CriticalSectionRawMutex, StripeUpdate, 1>; 8] =
+const CHANNEL: channel::Channel<CriticalSectionRawMutex, StripeUpdate, 1000> =
+    channel::Channel::new();
+static DISPLAY_QUEUE: [channel::Channel<CriticalSectionRawMutex, StripeUpdate, 1000>; 8] =
     [CHANNEL; 8];
+
+static READY: AtomicBool = AtomicBool::new(false);
 
 pub fn draw<D>(msg: DisplayMsg, dispatch: D)
 where
     D: Dispatch<DisplayMsg>,
 {
-    warn!("Draw dispatching: {:?}", msg);
+    info!("Draw dispatching: {:?}", msg);
 
     match &msg {
         DisplayMsg(DisplayUpdate::StripeUpdate(update)) => {
             let update = update.clone();
 
             spawn_local(async move {
-                warn!("About to send draw update: {:?}", update);
+                info!("About to send draw update: {:?}", update);
 
-                DISPLAY_QUEUE[update.id as usize].send(update).await;
+                //if READY.load(Ordering::SeqCst) {
+                DISPLAY_QUEUE[0].send(update).await;
+                //}
             });
         }
         _ => (),

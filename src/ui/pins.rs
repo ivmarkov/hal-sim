@@ -2,11 +2,10 @@ extern crate alloc;
 use alloc::rc::Rc;
 
 use itertools::Itertools;
+use web_sys::HtmlInputElement;
 
-use super::yewdux_middleware::*;
 use yew::prelude::*;
-
-use edge_frame::util::{get_input_checked, get_input_text};
+use yewdux_middleware::*;
 
 use crate::dto::gpio::*;
 use crate::web::{PinInputUpdate, PinUpdate, WebEvent, WebRequest};
@@ -72,15 +71,15 @@ impl Reducer<PinsState> for PinMsg {
     }
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq, Store)]
+pub struct PinsState(Vec<PinState>);
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PinState {
     pub meta: Rc<PinMeta>,
     pub dropped: bool,
     pub value: PinValue,
 }
-
-#[derive(Clone, Debug, Default, PartialEq, Eq, Store)]
-pub struct PinsState(Vec<PinState>);
 
 #[function_component(Pins)]
 pub fn pins() -> Html {
@@ -197,7 +196,7 @@ pub fn pin(props: &PinProps) -> Html {
                 let pins = pins.clone();
 
                 let onclick = Callback::from(move |event: MouseEvent| {
-                    let value = get_input_checked(event.into());
+                    let value = event.target_unchecked_into::<HtmlInputElement>().checked();
                     let pin: &PinState = &pins.0[id as usize];
 
                     match pin.value {
@@ -234,7 +233,13 @@ pub fn pin(props: &PinProps) -> Html {
             let pins = pins.clone();
 
             let oninput = Callback::from(move |event: InputEvent| {
-                let value = str::parse::<u16>(&get_input_text(event.into())).unwrap();
+                let value = str::parse::<u16>(
+                    event
+                        .target_unchecked_into::<HtmlInputElement>()
+                        .value()
+                        .as_str(),
+                )
+                .unwrap();
                 let pin: &PinState = &pins.0[id as usize];
 
                 match pin.value {

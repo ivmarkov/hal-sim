@@ -1,17 +1,16 @@
-use self::yewdux_middleware::*;
 use log::Level;
+
 use yew::prelude::*;
+use yewdux_middleware::*;
 
 use crate::web::{WebEvent, WebRequest};
 use displays::*;
 use pins::*;
 
-use edgeframe_middleware::{log_msg, log_store};
-
-pub mod edgeframe_middleware;
-pub mod yewdux_middleware;
+use middleware::{log_msg, log_store};
 
 mod displays;
+mod middleware;
 mod pins;
 
 #[cfg(all(feature = "middleware-ws", feature = "middleware-local"))]
@@ -28,14 +27,14 @@ pub struct HalProps {
 
 #[function_component(Hal)]
 pub fn hal(props: &HalProps) -> Html {
-    use_effect_with_deps(
-        move |_| {
-            init_middleware();
+    // use_effect_with_deps(
+    //     move |_| {
+    //         init_middleware();
 
-            move || ()
-        },
-        (),
-    );
+    //         move || ()
+    //     },
+    //     (),
+    // );
 
     let content = html! {
         <div class="columns">
@@ -71,23 +70,20 @@ pub fn app() -> Html {
     }
 }
 
-fn init_middleware() {
+pub fn init_middleware() {
     #[cfg(feature = "middleware-ws")]
     let (sender, receiver) = {
-        let (sender, receiver) = edgeframe_middleware::open("/ws").unwrap().split();
+        let (sender, receiver) = middleware::open("/ws").unwrap().split();
 
-        edgeframe_middleware::receive(receiver);
-        crate::ui::yewdux_middleware::dispatch::register(edgeframe_middleware::send(sender));
+        middleware::receive(receiver);
+        crate::ui::yewdux_middleware::dispatch::register(middleware::send(sender));
     };
 
     #[cfg(feature = "middleware-local")]
-    let (sender, receiver) = (comm::REQUEST_QUEUE.sender(), comm::REQUEST_QUEUE.receiver());
+    let (sender, receiver) = (comm::REQUEST_QUEUE.sender(), comm::EVENT_QUEUE.receiver());
 
     // Dispatch WebRequest messages => send to backend
-    dispatch::register(edgeframe_middleware::send(sender));
-
-    // Receive from backend => dispatch WebEvent messages
-    edgeframe_middleware::receive(receiver);
+    dispatch::register(middleware::send(sender));
 
     // Dispatch WebEvent messages => redispatch as PinMsg or DisplayMsg messages
     dispatch::register::<WebEvent, _>(|event| {
@@ -100,6 +96,9 @@ fn init_middleware() {
 
     dispatch::register(store_dispatch::<PinsState, PinMsg>());
     dispatch::register(store_dispatch::<DisplaysState, DisplayMsg>().fuse(Rc::new(draw)));
+
+    // Receive from backend => dispatch WebEvent messages
+    middleware::receive(receiver);
 }
 
 use core::fmt::Debug;
