@@ -14,6 +14,8 @@ use embedded_graphics_core::{
 
 pub use crate::dto::display::*;
 
+pub const MAX_DISPLAYS: usize = 8;
+
 pub struct Displays {
     id_gen: u8,
     shared: SharedDisplays,
@@ -43,6 +45,10 @@ impl Displays {
     where
         C: Clone + Default,
     {
+        if self.id_gen as usize >= MAX_DISPLAYS {
+            panic!("Only up to {} displays are supported", MAX_DISPLAYS);
+        }
+
         let id = self.id_gen;
         self.id_gen += 1;
 

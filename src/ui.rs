@@ -95,7 +95,9 @@ pub fn init_middleware() {
     });
 
     dispatch::register(store_dispatch::<PinsState, PinMsg>());
-    dispatch::register(store_dispatch::<DisplaysState, DisplayMsg>().fuse(Rc::new(draw)));
+    dispatch::register(
+        store_dispatch::<DisplaysState, DisplayMsg>().fuse(Rc::new(enqueue_draw_request)),
+    );
 
     // Receive from backend => dispatch WebEvent messages
     middleware::receive(receiver);
@@ -118,7 +120,7 @@ where
         // Log store before/after dispatching
         .fuse(Rc::new(log_store(Level::Trace)))
         // Log msg before dispatching
-        .fuse(Rc::new(log_msg(Level::Info)))
+        .fuse(Rc::new(log_msg(Level::Trace)))
 }
 
 fn as_request<M, D>(msg: M, dispatch: D)

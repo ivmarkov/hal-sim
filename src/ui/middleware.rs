@@ -45,7 +45,7 @@ mod local {
     extern crate alloc;
     use alloc::rc::Rc;
 
-    use log::info;
+    use log::trace;
 
     use wasm_bindgen_futures::spawn_local;
 
@@ -63,7 +63,7 @@ mod local {
             let sender = sender.clone();
 
             spawn_local(async move {
-                info!("Sending request: {:?}", msg);
+                trace!("Sending request: {:?}", msg);
 
                 sender.borrow_mut().send(msg).await;
             });
@@ -79,7 +79,7 @@ mod local {
         spawn_local(async move {
             loop {
                 let event = receiver.recv().await;
-                info!("Received event: {:?}", event);
+                trace!("Received event: {:?}", event);
 
                 dispatch::invoke(event);
             }

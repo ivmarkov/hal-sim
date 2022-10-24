@@ -1,7 +1,5 @@
 use std::sync::Mutex;
 
-use log::info;
-
 use embassy_futures::select::select;
 
 use embassy_sync::blocking_mutex::raw::{NoopRawMutex, RawMutex};
@@ -80,8 +78,6 @@ where
 {
     loop {
         if let Some(request) = receiver.recv().await? {
-            info!("[WEB RECEIVE] {:?}", request);
-
             let mut pins = pins.lock().unwrap();
 
             match request {
@@ -115,12 +111,10 @@ where
         let mut sender = sender.lock().await;
 
         while let Some(event) = find_pin_change(pins, pins_changes) {
-            info!("[WEB SEND] {:?}", event);
             sender.send(event).await?;
         }
 
         while let Some(event) = find_display_change(displays, displays_changes) {
-            info!("[WEB SEND] {:?}", event);
             sender.send(event).await?;
         }
     }

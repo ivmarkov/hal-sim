@@ -1,10 +1,7 @@
 use core::fmt::Debug;
-use std::sync::atomic::{AtomicBool, Ordering};
 
 extern crate alloc;
 use alloc::rc::Rc;
-
-//use log::info;
 
 use yew::prelude::*;
 use yewdux_middleware::*;
@@ -12,13 +9,20 @@ use yewdux_middleware::*;
 use wasm_bindgen_futures::spawn_local;
 
 use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-use embassy_sync::channel;
+use embassy_sync::channel::Channel;
 
 use wasm_bindgen::{Clamped, JsCast};
-use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, HtmlElement, ImageData};
+use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, ImageData};
 
+use crate::display::MAX_DISPLAYS;
 use crate::dto::display::*;
 use crate::web::{DisplayUpdate, StripeUpdate, WebEvent, WebRequest};
+
+pub type DrawQueue = Channel<CriticalSectionRawMutex, StripeUpdate, 2000>;
+
+// TODO: Replace with signals and state change accumulation
+const DRAW_QUEUE: DrawQueue = Channel::new();
+static DRAW_QUEUES: [DrawQueue; MAX_DISPLAYS] = [DRAW_QUEUE; MAX_DISPLAYS];
 
 #[derive(Debug)]
 pub struct DisplayMsg(pub DisplayUpdate);
@@ -142,30 +146,12 @@ pub fn display_canvas(props: &DisplayCanvasProps) -> Html {
         use_effect_with_deps(
             move |_| {
                 spawn_local(async move {
-                    let canvas = node_ref.cast::<HtmlCanvasElement>().unwrap();
-
-                    let ctx: CanvasRenderingContext2d = canvas
-                        .get_context("2d")
-                        .unwrap()
-                        .unwrap()
-                        .dyn_into()
-                        .unwrap();
-
-                    ctx.set_fill_style(&"#000000".into());
-                    ctx.fill_rect(0 as _, 0 as _, width as _, height as _);
+                    let ctx = create_draw_context(&node_ref, width, height);
 
                     loop {
-                        let update = DISPLAY_QUEUE[0].recv().await;
+                        let update = DRAW_QUEUES[id as usize].recv().await;
 
-                        let image_data = ImageData::new_with_u8_clamped_array_and_sh(
-                            Clamped(&update.data),
-                            (update.end - update.start) as _,
-                            1,
-                        )
-                        .unwrap();
-
-                        ctx.put_image_data(&image_data, update.start as _, update.row as _)
-                            .unwrap();
+                        draw(&ctx, &update);
                     }
                 });
 
@@ -180,27 +166,48 @@ pub fn display_canvas(props: &DisplayCanvasProps) -> Html {
     }
 }
 
-const CHANNEL_BUF_SIZE: usize = 5000;
+fn create_draw_context(
+    node_ref: &NodeRef,
+    width: usize,
+    height: usize,
+) -> CanvasRenderingContext2d {
+    let canvas = node_ref.cast::<HtmlCanvasElement>().unwrap();
 
-const CHANNEL: channel::Channel<CriticalSectionRawMutex, StripeUpdate, CHANNEL_BUF_SIZE> =
-    channel::Channel::new();
-static DISPLAY_QUEUE: [channel::Channel<CriticalSectionRawMutex, StripeUpdate, CHANNEL_BUF_SIZE>;
-    8] = [CHANNEL; 8];
+    let ctx: CanvasRenderingContext2d = canvas
+        .get_context("2d")
+        .unwrap()
+        .unwrap()
+        .dyn_into()
+        .unwrap();
 
-pub fn draw<D>(msg: DisplayMsg, dispatch: D)
+    ctx.set_fill_style(&"#000000".into());
+    ctx.fill_rect(0 as _, 0 as _, width as _, height as _);
+
+    ctx
+}
+
+fn draw(ctx: &CanvasRenderingContext2d, update: &StripeUpdate) {
+    let image_data = ImageData::new_with_u8_clamped_array_and_sh(
+        Clamped(&update.data),
+        (update.end - update.start) as _,
+        1,
+    )
+    .unwrap();
+
+    ctx.put_image_data(&image_data, update.start as _, update.row as _)
+        .unwrap();
+}
+
+pub fn enqueue_draw_request<D>(msg: DisplayMsg, dispatch: D)
 where
     D: Dispatch<DisplayMsg>,
 {
-    //info!("Draw dispatching: {:?}", msg);
-
     match &msg {
         DisplayMsg(DisplayUpdate::StripeUpdate(update)) => {
             let update = update.clone();
 
             spawn_local(async move {
-                //info!("About to send draw update: {:?}", update);
-
-                DISPLAY_QUEUE[0].send(update).await;
+                DRAW_QUEUES[update.id as usize].send(update).await;
             });
         }
         _ => (),
