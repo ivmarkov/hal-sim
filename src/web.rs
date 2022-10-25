@@ -213,7 +213,6 @@ fn consume_display_change(
                     id,
                     row: row as _,
                     start: *start as _,
-                    end: *end as _,
                     data: {
                         let row_data = &display.buffer()[row * display.meta().width..];
 

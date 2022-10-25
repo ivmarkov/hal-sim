@@ -1,3 +1,7 @@
+use core::fmt::Debug;
+
+use std::rc::Rc;
+
 use log::Level;
 
 use yew::prelude::*;
@@ -9,7 +13,10 @@ use pins::*;
 
 use middleware::{log_msg, log_store};
 
+use self::fb::FrameBuffer;
+
 mod displays;
+mod fb;
 mod middleware;
 mod pins;
 
@@ -27,14 +34,14 @@ pub struct HalProps {
 
 #[function_component(Hal)]
 pub fn hal(props: &HalProps) -> Html {
-    // use_effect_with_deps(
-    //     move |_| {
-    //         init_middleware();
+    use_effect_with_deps(
+        move |_| {
+            init_middleware();
 
-    //         move || ()
-    //     },
-    //     (),
-    // );
+            move || ()
+        },
+        (),
+    );
 
     let content = html! {
         <div class="columns">
@@ -70,7 +77,7 @@ pub fn app() -> Html {
     }
 }
 
-pub fn init_middleware() {
+fn init_middleware() {
     #[cfg(feature = "middleware-ws")]
     let (sender, receiver) = {
         let (sender, receiver) = middleware::open("/ws").unwrap().split();
@@ -90,21 +97,17 @@ pub fn init_middleware() {
         if let Some(msg) = PinMsg::from_event(&event) {
             dispatch::invoke(msg);
         } else if let Some(msg) = DisplayMsg::from_event(&event) {
+            FrameBuffer::update(&msg);
             dispatch::invoke(msg);
         }
     });
 
     dispatch::register(store_dispatch::<PinsState, PinMsg>());
-    dispatch::register(
-        store_dispatch::<DisplaysState, DisplayMsg>().fuse(Rc::new(enqueue_draw_request)),
-    );
+    dispatch::register(store_dispatch::<DisplaysState, DisplayMsg>());
 
     // Receive from backend => dispatch WebEvent messages
     middleware::receive(receiver);
 }
-
-use core::fmt::Debug;
-use std::rc::Rc;
 
 // Set the middleware for each store type (PinsState & DisplaysState)
 fn store_dispatch<S, M>() -> impl Dispatch<M> + Clone

@@ -3,26 +3,18 @@ use core::fmt::Debug;
 extern crate alloc;
 use alloc::rc::Rc;
 
+use log::trace;
+
 use yew::prelude::*;
 use yewdux_middleware::*;
 
-use wasm_bindgen_futures::spawn_local;
+use wasm_bindgen::JsCast;
+use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement};
 
-use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-use embassy_sync::channel::Channel;
-
-use wasm_bindgen::{Clamped, JsCast};
-use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement, ImageData};
-
-use crate::display::MAX_DISPLAYS;
 use crate::dto::display::*;
 use crate::web::{DisplayUpdate, StripeUpdate, WebEvent, WebRequest};
 
-pub type DrawQueue = Channel<CriticalSectionRawMutex, StripeUpdate, 2000>;
-
-// TODO: Replace with signals and state change accumulation
-const DRAW_QUEUE: DrawQueue = Channel::new();
-static DRAW_QUEUES: [DrawQueue; MAX_DISPLAYS] = [DRAW_QUEUE; MAX_DISPLAYS];
+use super::fb::FrameBuffer;
 
 #[derive(Debug)]
 pub struct DisplayMsg(pub DisplayUpdate);
@@ -67,6 +59,8 @@ impl Reducer<DisplaysState> for DisplayMsg {
             Self(DisplayUpdate::StripeUpdate(StripeUpdate { id, .. })) => {
                 let display: &mut DisplayState = &mut vec[*id as usize];
 
+                // TODO: Delay this with a timeout so that we get some
+                // buffering when redrawing the screen
                 display.render_cycle += 1;
             }
         }
@@ -134,31 +128,63 @@ pub struct DisplayCanvasProps {
 
 #[function_component(DisplayCanvas)]
 pub fn display_canvas(props: &DisplayCanvasProps) -> Html {
+    let _displays = use_store::<DisplaysState>(); // To receive change notifications
+
     let node_ref = use_node_ref();
+    let ctx_ref = use_mut_ref(|| None);
 
     {
         let node_ref = node_ref.clone();
+        let ctx_ref = ctx_ref.clone();
 
         let id = props.id;
         let width = props.width;
         let height = props.height;
 
         use_effect_with_deps(
-            move |_| {
-                spawn_local(async move {
+            move |node_ref| {
+                if ctx_ref.borrow().is_none() {
+                    trace!("[FB DRAW] CONTEXT CREATED");
+
                     let ctx = create_draw_context(&node_ref, width, height);
+                    FrameBuffer::blit(id, true, |image_data, x, y| {
+                        trace!("[FB DRAW] SCREEN FULL BLIT");
 
-                    loop {
-                        let update = DRAW_QUEUES[id as usize].recv().await;
+                        ctx.put_image_data(&image_data, x as _, y as _).unwrap();
+                    });
 
-                        draw(&ctx, &update);
-                    }
-                });
+                    *ctx_ref.borrow_mut() = Some(ctx);
+                }
 
-                move || {}
+                move || {
+                    trace!("[FB DRAW] CONTEXT DROPPED");
+                    *ctx_ref.borrow_mut() = None;
+                }
             },
-            1,
+            node_ref,
         );
+    }
+
+    {
+        let id = props.id;
+
+        use_effect(move || {
+            if let Some(ctx) = ctx_ref.borrow().as_ref() {
+                FrameBuffer::blit(id, false, |image_data, x, y| {
+                    trace!(
+                        "[FB DRAW] SCREEN BLIT: x={} y={} w={} h={}",
+                        x,
+                        y,
+                        image_data.width(),
+                        image_data.height()
+                    );
+
+                    ctx.put_image_data(&image_data, x as _, y as _).unwrap();
+                });
+            }
+
+            move || {}
+        });
     }
 
     html! {
@@ -184,34 +210,4 @@ fn create_draw_context(
     ctx.fill_rect(0 as _, 0 as _, width as _, height as _);
 
     ctx
-}
-
-fn draw(ctx: &CanvasRenderingContext2d, update: &StripeUpdate) {
-    let image_data = ImageData::new_with_u8_clamped_array_and_sh(
-        Clamped(&update.data),
-        (update.end - update.start) as _,
-        1,
-    )
-    .unwrap();
-
-    ctx.put_image_data(&image_data, update.start as _, update.row as _)
-        .unwrap();
-}
-
-pub fn enqueue_draw_request<D>(msg: DisplayMsg, dispatch: D)
-where
-    D: Dispatch<DisplayMsg>,
-{
-    match &msg {
-        DisplayMsg(DisplayUpdate::StripeUpdate(update)) => {
-            let update = update.clone();
-
-            spawn_local(async move {
-                DRAW_QUEUES[update.id as usize].send(update).await;
-            });
-        }
-        _ => (),
-    }
-
-    dispatch.invoke(msg);
 }

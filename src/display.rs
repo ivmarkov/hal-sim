@@ -1,4 +1,3 @@
-use core::cmp::{max, min};
 use core::convert::Infallible;
 
 extern crate alloc;
@@ -13,8 +12,6 @@ use embedded_graphics_core::{
 };
 
 pub use crate::dto::display::*;
-
-pub const MAX_DISPLAYS: usize = 8;
 
 pub struct Displays {
     id_gen: u8,
@@ -45,10 +42,6 @@ impl Displays {
     where
         C: Clone + Default,
     {
-        if self.id_gen as usize >= MAX_DISPLAYS {
-            panic!("Only up to {} displays are supported", MAX_DISPLAYS);
-        }
-
         let id = self.id_gen;
         self.id_gen += 1;
 
@@ -247,40 +240,5 @@ impl SharedDisplay {
         }
 
         changed
-    }
-}
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct Change {
-    pub created: bool,
-    pub dropped: bool,
-    pub screen_updates: Vec<(usize, usize)>,
-}
-
-impl Change {
-    pub fn update(&mut self, other: &Self) {
-        self.created |= other.created;
-        self.dropped |= other.dropped;
-
-        for (i, other_row) in other.screen_updates.iter().enumerate() {
-            self.update_row(i, other_row.0, other_row.1);
-        }
-    }
-
-    pub fn update_row(&mut self, index: usize, start: usize, end: usize) {
-        if start < end {
-            while self.screen_updates.len() <= index {
-                self.screen_updates.push((0, 0));
-            }
-
-            let row = &mut self.screen_updates[index];
-
-            if row.0 < row.1 {
-                row.0 = min(row.0, start);
-                row.1 = max(row.1, end);
-            } else {
-                *row = (start, end);
-            }
-        }
     }
 }
