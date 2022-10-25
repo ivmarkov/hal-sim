@@ -28,15 +28,20 @@ compile_error!("One of the features `middleware-ws` or `middleware-local` must b
 
 #[derive(Properties, Clone, PartialEq)]
 pub struct HalProps {
+    #[prop_or("/hal".to_owned())]
+    pub endpoint: String,
+
     #[prop_or_default]
     pub children: Children,
 }
 
 #[function_component(Hal)]
 pub fn hal(props: &HalProps) -> Html {
+    let endpoint = props.endpoint.clone();
+
     use_effect_with_deps(
         move |_| {
-            init_middleware();
+            init_middleware(endpoint);
 
             move || ()
         },
@@ -77,20 +82,16 @@ pub fn app() -> Html {
     }
 }
 
-fn init_middleware() {
+fn init_middleware(endpoint: String) {
     #[cfg(feature = "middleware-ws")]
-    let (sender, receiver) = {
-        let (sender, receiver) = middleware::open("/ws").unwrap().split();
-
-        middleware::receive(receiver);
-        crate::ui::yewdux_middleware::dispatch::register(middleware::send(sender));
-    };
+    let (sender, receiver) =
+        middleware::open(&endpoint).unwrap_or_else(|_| panic!("Failed to open websocket"));
 
     #[cfg(feature = "middleware-local")]
     let (sender, receiver) = (comm::REQUEST_QUEUE.sender(), comm::EVENT_QUEUE.receiver());
 
     // Dispatch WebRequest messages => send to backend
-    dispatch::register(middleware::send(sender));
+    dispatch::register(middleware::send::<WebRequest>(sender));
 
     // Dispatch WebEvent messages => redispatch as PinMsg or DisplayMsg messages
     dispatch::register::<WebEvent, _>(|event| {
@@ -106,7 +107,7 @@ fn init_middleware() {
     dispatch::register(store_dispatch::<DisplaysState, DisplayMsg>());
 
     // Receive from backend => dispatch WebEvent messages
-    middleware::receive(receiver);
+    middleware::receive::<WebEvent>(receiver);
 }
 
 // Set the middleware for each store type (PinsState & DisplaysState)

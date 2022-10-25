@@ -90,27 +90,30 @@ mod local {
 #[cfg(feature = "middleware-ws")]
 mod ws {
     use core::cell::RefCell;
-    use core::marker::PhantomData;
+    use core::fmt::Debug;
 
     extern crate alloc;
     use alloc::rc::Rc;
 
     use serde::{de::DeserializeOwned, Serialize};
 
+    use log::trace;
+
     use futures::stream::{SplitSink, SplitStream};
     use futures::{SinkExt, StreamExt};
 
     use gloo_net::websocket::{futures::WebSocket, Message};
 
-    use postcard::*;
+    use postcard::to_allocvec;
 
-    use yew::use_ref;
+    use wasm_bindgen::JsError;
+    use wasm_bindgen_futures::spawn_local;
 
-    pub fn open<R, E>(ws_endpoint: &'static str) -> anyhow::Result<(WebSender<R>, WebReceiver<E>)>
-    where
-        R: 'static,
-        E: 'static,
-    {
+    use yewdux_middleware::dispatch;
+
+    pub fn open(
+        ws_endpoint: &str,
+    ) -> Result<(SplitSink<WebSocket, Message>, SplitStream<WebSocket>), JsError> {
         open_url(&format!(
             "ws://{}/{}",
             web_sys::window().unwrap().location().host().unwrap(),
@@ -118,53 +121,46 @@ mod ws {
         ))
     }
 
-    fn open_url<R, E>(url: &str) -> anyhow::Result<(WebSender<R>, WebReceiver<E>)> {
-        let ws = WebSocket::open(url).map_err(|e| anyhow::anyhow!("{}", e))?;
+    fn open_url(
+        url: &str,
+    ) -> Result<(SplitSink<WebSocket, Message>, SplitStream<WebSocket>), JsError> {
+        let ws = WebSocket::open(url)?;
 
-        let (write, read) = ws.split();
-
-        Ok((
-            WebSender(write, PhantomData),
-            WebReceiver(read, PhantomData),
-        ))
+        Ok(ws.split())
     }
 
-    pub struct WebSender<R>(SplitSink<WebSocket, Message>, PhantomData<fn() -> R>);
-
-    impl<R> WebSender<R>
+    pub fn send<M>(sender: SplitSink<WebSocket, Message>) -> impl Fn(M)
     where
-        R: Serialize,
+        M: Serialize + Debug + 'static,
     {
-        pub async fn send(&mut self, request: R) -> anyhow::Result<()> {
-            self.0
-                .send(Message::Bytes(to_allocvec(&request)?))
-                .await
-                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        let sender = Rc::new(RefCell::new(sender));
 
-            Ok(())
+        move |msg| {
+            let sender = sender.clone();
+
+            spawn_local(async move {
+                trace!("Sending request: {:?}", msg);
+
+                sender
+                    .borrow_mut()
+                    .send(Message::Bytes(to_allocvec(&msg).unwrap()))
+                    .await
+                    .unwrap();
+            });
         }
     }
 
-    pub struct WebReceiver<E>(SplitStream<WebSocket>, PhantomData<fn() -> E>);
-
-    impl<E> WebReceiver<E>
+    pub fn receive<M>(mut receiver: SplitStream<WebSocket>)
     where
-        E: DeserializeOwned,
+        M: DeserializeOwned + Debug + 'static,
     {
-        pub async fn recv(&mut self) -> anyhow::Result<E> {
-            let message = self
-                .0
-                .next()
-                .await
-                .unwrap()
-                .map_err(|e| anyhow::anyhow!("{}", e))?;
+        spawn_local(async move {
+            loop {
+                let event = receiver.next().await.unwrap().unwrap();
+                trace!("Received event: {:?}", event);
 
-            let event = match message {
-                Message::Bytes(data) => from_bytes(&data)?,
-                _ => anyhow::bail!("Invalid message format"),
-            };
-
-            Ok(event)
-        }
+                dispatch::invoke(event);
+            }
+        });
     }
 }

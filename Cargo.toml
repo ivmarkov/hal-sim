@@ -10,7 +10,7 @@ sim = ["nb", "embedded-hal", "embedded-graphics-core"]
 web = ["sim", "futures", "embassy-futures", "embassy-sync", "channel-bridge"]
 ws = ["web", "channel-bridge"]
 ui = ["yew", "yewdux", "yewdux-middleware", "wasm-logger", "wasm-bindgen", "wasm-bindgen-futures", "web-sys", "itertools"]
-middleware-ws = []
+middleware-ws = ["gloo-net", "postcard/alloc"]
 middleware-local = ["embassy-sync"]
 
 [dependencies]
@@ -28,6 +28,8 @@ futures = { version = "0.3", optional = true }
 embassy-futures = { version = "0.1", git = "https://github.com/ivmarkov/embassy", optional = true }
 embassy-sync = { version = "0.1", git = "https://github.com/ivmarkov/embassy", optional = true }
 channel-bridge = { version = "0.1", git = "https://github.com/ivmarkov/channel-bridge", default-features = false, features = ["nightly", "embedded-svc"], optional = true }
+gloo-net = { version = "0.2", optional = true }
+postcard = { version = "1", optional = true }
 
 # ws
 embedded-svc = { version = "0.23", default-features = false, git = "https://github.com/esp-rs/embedded-svc", features = ["experimental", "nightly"], optional = true }
