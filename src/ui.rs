@@ -82,10 +82,10 @@ pub fn app() -> Html {
     }
 }
 
-fn init_middleware(endpoint: String) {
+fn init_middleware(_endpoint: String) {
     #[cfg(feature = "middleware-ws")]
     let (sender, receiver) =
-        middleware::open(&endpoint).unwrap_or_else(|_| panic!("Failed to open websocket"));
+        middleware::open(&_endpoint).unwrap_or_else(|_| panic!("Failed to open websocket"));
 
     #[cfg(feature = "middleware-local")]
     let (sender, receiver) = (comm::REQUEST_QUEUE.sender(), comm::EVENT_QUEUE.receiver());
