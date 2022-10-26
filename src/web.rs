@@ -6,10 +6,10 @@ use embassy_sync::blocking_mutex::raw::{NoopRawMutex, RawMutex};
 use embassy_sync::mutex::Mutex as AsyncMutex;
 
 use channel_bridge::asynch::{Receiver, Sender};
+use channel_bridge::notification::Notification;
 
 use crate::display::{Change as DisplayChange, SharedDisplay, SharedDisplays};
 use crate::gpio::{Change as PinChange, SharedPin, SharedPins};
-use crate::notification::Notification;
 
 pub use crate::dto::web::*;
 use crate::peripherals::SharedPeripherals;

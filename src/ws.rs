@@ -1,8 +1,9 @@
 use std::sync::Mutex;
 
+use channel_bridge::notification::Notification;
+
 use crate::display::{Change as DisplayChange, SharedDisplays};
 use crate::gpio::{Change as PinChange, SharedPins};
-use crate::notification::Notification;
 use crate::web;
 
 #[cfg(feature = "embedded-svc")]
