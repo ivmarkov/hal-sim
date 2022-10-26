@@ -118,7 +118,7 @@ where
     for<'a> &'a M: Into<Option<WebRequest>>,
 {
     // Update store
-    yewdux::dispatch::apply
+    dispatch::store
         // PinMsg => WebRequest
         .fuse(as_request)
         // Log store before/after dispatching
