@@ -22,7 +22,7 @@ pub struct Displays {
 }
 
 impl Displays {
-    pub fn new(changed: impl Fn() + 'static) -> Self {
+    pub(crate) fn new(changed: impl Fn() + 'static) -> Self {
         Self {
             id_gen: 0,
             shared: Arc::new(Mutex::new(Vec::new())),
@@ -30,7 +30,7 @@ impl Displays {
         }
     }
 
-    pub fn shared(&self) -> &SharedDisplays {
+    pub(crate) fn shared(&self) -> &SharedDisplays {
         &self.shared
     }
 

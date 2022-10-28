@@ -32,7 +32,7 @@ pub struct Pins {
 }
 
 impl Pins {
-    pub fn new(changed: impl Fn() + 'static) -> Self {
+    pub(crate) fn new(changed: impl Fn() + 'static) -> Self {
         Self {
             id_gen: 0,
             shared: Arc::new(Mutex::new(Vec::new())),
@@ -40,7 +40,7 @@ impl Pins {
         }
     }
 
-    pub fn shared(&self) -> &SharedPins {
+    pub(crate) fn shared(&self) -> &SharedPins {
         &self.shared
     }
 
