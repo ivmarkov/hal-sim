@@ -3,6 +3,8 @@ use core::convert::Infallible;
 extern crate alloc;
 use alloc::sync::Arc;
 
+use log::trace;
+
 use std::sync::Mutex;
 
 use embedded_graphics_core::{
@@ -235,6 +237,8 @@ impl SharedDisplay {
 
                     changed_state.update_row(y, x, x + 1);
                     changed = true;
+
+                    trace!("Updated pixel x={} y={}", x, y);
                 }
             }
         }

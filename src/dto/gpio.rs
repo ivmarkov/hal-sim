@@ -16,7 +16,7 @@ pub enum PinType {
     Input(ButtonType),
     Output,
     InputOutput(ButtonType),
-    Analog,
+    Analog(u16, u16),
 }
 
 impl PinType {
@@ -47,21 +47,4 @@ pub enum PinValue {
     Output(bool),
     InputOutput { input: bool, output: bool },
     Adc(u16),
-}
-
-impl PinValue {
-    pub const fn pin_type(&self, button_type: Option<ButtonType>) -> PinType {
-        let button_type = if let Some(button_type) = button_type {
-            button_type
-        } else {
-            ButtonType::Toggle
-        };
-
-        match self {
-            Self::Input(_) => PinType::Input(button_type),
-            Self::InputOutput { .. } => PinType::InputOutput(button_type),
-            Self::Output(_) => PinType::Output,
-            Self::Adc(_) => PinType::Analog,
-        }
-    }
 }

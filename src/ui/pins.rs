@@ -254,12 +254,17 @@ pub fn pin(props: &PinProps) -> Html {
                 }
             });
 
+            let (min, max) = match pin.meta.pin_type {
+                PinType::Analog(min, max) => (min, max),
+                _ => unreachable!(),
+            };
+
             html! {
                 <>
                     <input class="input ml-4 is-small py-0" type="text" style="width: 50px;" disabled={true} value={value.to_string()}/>
                     <input
                         class="slider is-circle is-small is-primary p-0 ml-2 mr-0 my-0"
-                        style="font-size: 9px; width: 70px;" step="1" min="0" max="100"
+                        style="font-size: 9px; width: 70px;" step="1" min={min.to_string()} max={max.to_string()}
                         value={value.to_string()}
                         type="range"
                         {oninput}

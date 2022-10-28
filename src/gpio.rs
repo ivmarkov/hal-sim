@@ -50,7 +50,12 @@ impl Pins {
         category: impl Into<PinCategory>,
         value: bool,
     ) -> Pin<Input> {
-        self.new_pin(name, category, PinValue::Input(value), None)
+        self.new_pin(
+            name,
+            category,
+            PinType::Input(ButtonType::Toggle),
+            PinValue::Input(value),
+        )
     }
 
     pub fn input_click(
@@ -62,8 +67,8 @@ impl Pins {
         self.new_pin(
             name,
             category,
+            PinType::InputOutput(ButtonType::Click),
             PinValue::Input(value),
-            Some(ButtonType::Click),
         )
     }
 
@@ -73,7 +78,7 @@ impl Pins {
         category: impl Into<PinCategory>,
         value: bool,
     ) -> Pin<Output> {
-        self.new_pin(name, category, PinValue::Output(value), None)
+        self.new_pin(name, category, PinType::Output, PinValue::Output(value))
     }
 
     pub fn input_output(
@@ -86,8 +91,8 @@ impl Pins {
         self.new_pin(
             name,
             category,
+            PinType::InputOutput(ButtonType::Toggle),
             PinValue::InputOutput { input, output },
-            None,
         )
     }
 
@@ -101,8 +106,8 @@ impl Pins {
         self.new_pin(
             name,
             category,
+            PinType::InputOutput(ButtonType::Click),
             PinValue::InputOutput { input, output },
-            Some(ButtonType::Click),
         )
     }
 
@@ -115,20 +120,39 @@ impl Pins {
     where
         ADC: AdcTrait,
     {
-        self.new_pin(name, category, PinValue::Adc(value), None)
+        self.adc_range(name, category, 0, 3300, value)
+    }
+
+    pub fn adc_range<ADC>(
+        &mut self,
+        name: impl Into<PinName>,
+        category: impl Into<PinCategory>,
+        min: u16,
+        max: u16,
+        value: u16,
+    ) -> Pin<ADC>
+    where
+        ADC: AdcTrait,
+    {
+        self.new_pin(
+            name,
+            category,
+            PinType::Analog(min, max),
+            PinValue::Adc(value),
+        )
     }
 
     fn new_pin<MODE>(
         &mut self,
         name: impl Into<PinName>,
         category: impl Into<PinCategory>,
+        pin_type: PinType,
         value: PinValue,
-        button_type: Option<ButtonType>,
     ) -> Pin<MODE> {
         let id = self.id_gen;
         self.id_gen += 1;
 
-        let state = PinState::new(name.into(), category.into(), value, button_type);
+        let state = PinState::new(name.into(), category.into(), pin_type, value);
 
         {
             let mut states = self.shared.lock().unwrap();
@@ -282,14 +306,9 @@ pub struct PinState {
 }
 
 impl PinState {
-    const fn new(
-        name: PinName,
-        category: PinCategory,
-        value: PinValue,
-        button_type: Option<ButtonType>,
-    ) -> Self {
+    const fn new(name: PinName, category: PinCategory, pin_type: PinType, value: PinValue) -> Self {
         Self {
-            shared: SharedPin::new(name, category, value, button_type),
+            shared: SharedPin::new(name, category, pin_type, value),
             change: Change::Created,
         }
     }
@@ -319,17 +338,12 @@ pub struct SharedPin {
 }
 
 impl SharedPin {
-    const fn new(
-        name: PinName,
-        category: PinCategory,
-        value: PinValue,
-        button_type: Option<ButtonType>,
-    ) -> Self {
+    const fn new(name: PinName, category: PinCategory, pin_type: PinType, value: PinValue) -> Self {
         Self {
             meta: PinMeta {
                 name,
                 category,
-                pin_type: value.pin_type(button_type),
+                pin_type,
             },
             value,
             dropped: false,

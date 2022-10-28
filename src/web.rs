@@ -1,5 +1,7 @@
 use std::sync::Mutex;
 
+use log::trace;
+
 use embassy_futures::select::select;
 
 use embassy_sync::blocking_mutex::raw::{NoopRawMutex, RawMutex};
@@ -111,10 +113,12 @@ where
         let mut sender = sender.lock().await;
 
         while let Some(event) = find_pin_change(pins, pins_changes) {
+            trace!("SENDING: {:?}", event);
             sender.send(event).await?;
         }
 
         while let Some(event) = find_display_change(displays, displays_changes) {
+            trace!("SENDING: {:?}", event);
             sender.send(event).await?;
         }
     }
