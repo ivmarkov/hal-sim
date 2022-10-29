@@ -5,10 +5,18 @@ use log::trace;
 use wasm_bindgen::Clamped;
 use web_sys::ImageData;
 
+use gloo_timers::callback::Timeout;
+
+use yewdux::dispatch;
+use yewdux_middleware::Store;
+
 use crate::dto::display::*;
 use crate::web::{DisplayUpdate, StripeUpdate};
 
 use super::displays::DisplayMsg;
+
+#[derive(Debug, Default, PartialEq, Eq, Clone, Store)]
+pub struct FrameBufferStore(u32);
 
 pub struct FrameBuffer {
     width: usize,
@@ -60,6 +68,16 @@ impl FrameBuffer {
                 });
             }
         }
+
+        // Use a timeout to accuulate bursts of icoming screen updates
+        // into a single one
+        TIMEOUT.with(|timeout| {
+            *timeout.borrow_mut() = Some(Timeout::new(10, || {
+                dispatch::reduce_mut(|store: &mut FrameBufferStore| {
+                    store.0 += 1;
+                })
+            }));
+        })
     }
 
     pub fn blit<F>(id: u8, full: bool, f: F)
@@ -155,4 +173,8 @@ impl FrameBuffer {
 
 thread_local! {
     static FBS: RefCell<Vec<FrameBuffer>> = RefCell::new(Vec::new());
+}
+
+thread_local! {
+    static TIMEOUT: RefCell<Option<Timeout>> = RefCell::new(None);
 }

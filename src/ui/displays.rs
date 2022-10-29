@@ -12,9 +12,9 @@ use wasm_bindgen::JsCast;
 use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement};
 
 use crate::dto::display::*;
-use crate::web::{DisplayUpdate, StripeUpdate, WebEvent, WebRequest};
+use crate::web::{DisplayUpdate, WebEvent, WebRequest};
 
-use super::fb::FrameBuffer;
+use super::fb::{FrameBuffer, FrameBufferStore};
 
 #[derive(Debug)]
 pub struct DisplayMsg(pub DisplayUpdate);
@@ -39,30 +39,20 @@ impl Reducer<DisplaysState> for DisplayMsg {
         let state = Rc::make_mut(&mut store);
         let vec = &mut state.0;
 
-        match self {
-            Self(DisplayUpdate::MetaUpdate { id, meta, dropped }) => {
-                while vec.len() <= *id as _ {
-                    vec.push(DisplayState {
-                        meta: Rc::new(Default::default()),
-                        dropped: false,
-                        render_cycle: 0,
-                    });
-                }
-
-                let display: &mut DisplayState = &mut vec[*id as usize];
-                if let Some(meta) = meta {
-                    display.meta = Rc::new(meta.clone());
-                }
-
-                display.dropped = *dropped;
+        if let Self(DisplayUpdate::MetaUpdate { id, meta, dropped }) = self {
+            while vec.len() <= *id as _ {
+                vec.push(DisplayState {
+                    meta: Rc::new(Default::default()),
+                    dropped: false,
+                });
             }
-            Self(DisplayUpdate::StripeUpdate(StripeUpdate { id, .. })) => {
-                let display: &mut DisplayState = &mut vec[*id as usize];
 
-                // TODO: Delay this with a timeout so that we get some
-                // buffering when redrawing the screen
-                display.render_cycle += 1;
+            let display: &mut DisplayState = &mut vec[*id as usize];
+            if let Some(meta) = meta {
+                display.meta = Rc::new(meta.clone());
             }
+
+            display.dropped = *dropped;
         }
 
         store
@@ -76,7 +66,6 @@ pub struct DisplaysState(Vec<DisplayState>);
 pub struct DisplayState {
     pub meta: Rc<DisplayMeta>,
     pub dropped: bool,
-    pub render_cycle: u32,
 }
 
 #[function_component(Displays)]
@@ -128,7 +117,7 @@ pub struct DisplayCanvasProps {
 
 #[function_component(DisplayCanvas)]
 pub fn display_canvas(props: &DisplayCanvasProps) -> Html {
-    let _displays = use_store::<DisplaysState>(); // To receive change notifications
+    let _fbs = use_store::<FrameBufferStore>(); // To receive change notifications
 
     let node_ref = use_node_ref();
     let ctx_ref = use_mut_ref(|| None);
@@ -148,9 +137,9 @@ pub fn display_canvas(props: &DisplayCanvasProps) -> Html {
 
                     let ctx = create_draw_context(&node_ref, width, height);
                     FrameBuffer::blit(id, true, |image_data, x, y| {
-                        trace!("[FB DRAW] SCREEN FULL BLIT");
-
                         ctx.put_image_data(&image_data, x as _, y as _).unwrap();
+
+                        trace!("[FB DRAW] SCREEN FULL BLIT");
                     });
 
                     *ctx_ref.borrow_mut() = Some(ctx);
@@ -170,7 +159,11 @@ pub fn display_canvas(props: &DisplayCanvasProps) -> Html {
 
         use_effect(move || {
             if let Some(ctx) = ctx_ref.borrow().as_ref() {
+                trace!("[FB DRAW] SCREEN BLIT START");
+
                 FrameBuffer::blit(id, false, |image_data, x, y| {
+                    ctx.put_image_data(&image_data, x as _, y as _).unwrap();
+
                     trace!(
                         "[FB DRAW] SCREEN BLIT: x={} y={} w={} h={}",
                         x,
@@ -178,8 +171,6 @@ pub fn display_canvas(props: &DisplayCanvasProps) -> Html {
                         image_data.width(),
                         image_data.height()
                     );
-
-                    ctx.put_image_data(&image_data, x as _, y as _).unwrap();
                 });
             }
 
