@@ -8,7 +8,8 @@ use super::{
 pub type RequestId = usize;
 
 pub const SCREEN_MAX_STRIPE_LEN: usize = 320; // Stripes and overall WebEvents get allocated on the stack, so we want to keep these small
-pub const SCREEN_MAX_STRIPE_U8_LEN: usize = SCREEN_MAX_STRIPE_LEN * core::mem::size_of::<u32>();
+pub const SCREEN_MAX_STRIPE_U8_LEN: usize = SCREEN_MAX_STRIPE_LEN * STRIPE_PIXEL_SIZE;
+pub const STRIPE_PIXEL_SIZE: usize = 3;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum WebRequest {

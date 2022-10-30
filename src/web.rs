@@ -221,13 +221,12 @@ fn consume_display_change(
                         let row_data = &display.buffer()[row * display.meta().width..];
 
                         row_data[*start..*end].iter()
-                        .flat_map(|pixel| {
-                            let mut bytes = pixel.to_le_bytes();
-                            bytes[3] = 255; // Bytes are RGBA; set to 0% transparency
+                            .flat_map(|pixel| {
+                                let bytes = pixel.to_be_bytes();
 
-                            bytes
-                        })
-                        .collect::<heapless::Vec<_, { crate::dto::web::SCREEN_MAX_STRIPE_U8_LEN }>>()
+                                [bytes[1], bytes[2], bytes[3]]
+                            })
+                            .collect::<heapless::Vec<_, { crate::dto::web::SCREEN_MAX_STRIPE_U8_LEN }>>()
                     },
                 },
             )));

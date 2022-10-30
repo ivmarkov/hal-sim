@@ -11,7 +11,7 @@ use yewdux::dispatch;
 use yewdux_middleware::Store;
 
 use crate::dto::display::*;
-use crate::web::{DisplayUpdate, StripeUpdate};
+use crate::web::{self, DisplayUpdate, StripeUpdate};
 
 use super::displays::DisplayMsg;
 
@@ -92,19 +92,29 @@ impl FrameBuffer {
     }
 
     fn update_changes(&mut self, update: &StripeUpdate) {
+        let pixel_len = update.data.len() / web::STRIPE_PIXEL_SIZE;
+
         self.change.update_row(
             update.row as _,
             update.start as _,
-            update.start as usize + update.data.len() / Self::PIXEL_SIZE,
+            update.start as usize + pixel_len,
         );
 
-        let offset_start =
+        let mut offset =
             (self.width * update.row as usize + update.start as usize) * Self::PIXEL_SIZE;
-        let offset_end = offset_start + update.data.len();
 
-        self.extend_screen_fb(offset_end);
+        self.extend_screen_fb(offset + pixel_len * Self::PIXEL_SIZE);
 
-        self.screen_fb[offset_start..offset_end].copy_from_slice(&update.data);
+        for (index, byte) in update.data.iter().enumerate() {
+            self.screen_fb[offset] = *byte;
+
+            offset += 1;
+
+            if index % 3 == 2 {
+                self.screen_fb[offset] = 255; // Transparency
+                offset += 1;
+            }
+        }
     }
 
     fn blit_fb<F>(&mut self, full: bool, mut f: F)
