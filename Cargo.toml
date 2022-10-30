@@ -9,7 +9,7 @@ nightly = []
 sim = ["nb", "embedded-hal", "embedded-graphics-core"]
 web = ["sim", "futures", "embassy-futures", "embassy-sync", "channel-bridge"]
 ws = ["web", "channel-bridge"]
-ui = ["yew", "yewdux", "yewdux-middleware", "wasm-logger", "wasm-bindgen", "wasm-bindgen-futures", "web-sys", "itertools", "gloo-timers"]
+ui = ["yew", "yewdux", "yewdux-middleware", "wasm-logger", "wasm-bindgen", "wasm-bindgen-futures", "web-sys", "itertools", "gloo-timers", "embassy-sync"]
 middleware-ws = ["gloo-net", "postcard/alloc"]
 middleware-local = ["embassy-sync"]
 
