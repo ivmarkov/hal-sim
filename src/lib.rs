@@ -1,3 +1,4 @@
+#![allow(clippy::let_unit_value)]
 #![feature(cfg_version)]
 #![cfg_attr(
     all(feature = "web", not(version("1.65"))),
