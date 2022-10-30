@@ -59,6 +59,7 @@ pub struct PinUpdate {
     pub value: PinValue,
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum DisplayUpdate {
     MetaUpdate {

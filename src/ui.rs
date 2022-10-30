@@ -35,6 +35,7 @@ pub struct HalProps {
     pub children: Children,
 }
 
+#[allow(clippy::let_unit_value)]
 #[function_component(Hal)]
 pub fn hal(props: &HalProps) -> Html {
     let endpoint = props.endpoint.clone();

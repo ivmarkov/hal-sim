@@ -135,9 +135,9 @@ pub fn display_canvas(props: &DisplayCanvasProps) -> Html {
                 if ctx_ref.borrow().is_none() {
                     trace!("[FB DRAW] CONTEXT CREATED");
 
-                    let ctx = create_draw_context(&node_ref, width, height);
+                    let ctx = create_draw_context(node_ref, width, height);
                     FrameBuffer::blit(id, true, |image_data, x, y| {
-                        ctx.put_image_data(&image_data, x as _, y as _).unwrap();
+                        ctx.put_image_data(image_data, x as _, y as _).unwrap();
 
                         trace!("[FB DRAW] SCREEN FULL BLIT");
                     });
@@ -162,7 +162,7 @@ pub fn display_canvas(props: &DisplayCanvasProps) -> Html {
                 trace!("[FB DRAW] SCREEN BLIT START");
 
                 FrameBuffer::blit(id, false, |image_data, x, y| {
-                    ctx.put_image_data(&image_data, x as _, y as _).unwrap();
+                    ctx.put_image_data(image_data, x as _, y as _).unwrap();
 
                     trace!(
                         "[FB DRAW] SCREEN BLIT: x={} y={} w={} h={}",

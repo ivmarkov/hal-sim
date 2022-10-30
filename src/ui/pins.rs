@@ -193,7 +193,6 @@ pub fn pin(props: &PinProps) -> Html {
                 }
             } else {
                 let id = props.id;
-                let pins = pins.clone();
 
                 let onclick = Callback::from(move |event: MouseEvent| {
                     let value = event.target_unchecked_into::<HtmlInputElement>().checked();
