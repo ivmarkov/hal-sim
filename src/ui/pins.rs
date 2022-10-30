@@ -34,8 +34,8 @@ impl<'a> From<&'a PinMsg> for Option<WebRequest> {
     }
 }
 
-impl Reducer<PinsState> for PinMsg {
-    fn apply(&self, mut store: Rc<PinsState>) -> Rc<PinsState> {
+impl Reducer<PinsStore> for PinMsg {
+    fn apply(&self, mut store: Rc<PinsStore>) -> Rc<PinsStore> {
         let state = Rc::make_mut(&mut store);
         let vec = &mut state.0;
 
@@ -72,7 +72,7 @@ impl Reducer<PinsState> for PinMsg {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Store)]
-pub struct PinsState(Vec<PinState>);
+pub struct PinsStore(Vec<PinState>);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PinState {
@@ -83,7 +83,7 @@ pub struct PinState {
 
 #[function_component(Pins)]
 pub fn pins() -> Html {
-    let pins = use_store::<PinsState>();
+    let pins = use_store_value::<PinsStore>();
 
     let pins = &*pins;
 
@@ -138,7 +138,7 @@ pub struct PinProps {
 
 #[function_component(Pin)]
 pub fn pin(props: &PinProps) -> Html {
-    let pins = use_store::<PinsState>();
+    let pins = use_store_value::<PinsStore>();
 
     let pin: &PinState = &pins.0[props.id as usize];
 

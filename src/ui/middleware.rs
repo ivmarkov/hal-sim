@@ -13,7 +13,7 @@ pub use ws::*;
 pub fn log_msg<M, D>(level: Level) -> impl Fn(M, D)
 where
     M: Debug,
-    D: Dispatch<M>,
+    D: MiddlewareDispatch<M>,
 {
     move |msg, dispatch| {
         log!(level, "Dispatching message: {:?}", msg);
@@ -26,7 +26,7 @@ pub fn log_store<S, M, D>(level: Level) -> impl Fn(M, D)
 where
     S: Store + Debug,
     M: Reducer<S> + Debug,
-    D: Dispatch<M>,
+    D: MiddlewareDispatch<M>,
 {
     move |msg, dispatch| {
         log!(level, "Store (before): {:?}", yewdux::dispatch::get::<S>());

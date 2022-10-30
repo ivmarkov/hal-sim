@@ -103,15 +103,15 @@ fn init_middleware(_endpoint: String) {
         }
     });
 
-    dispatch::register(store_dispatch::<PinsState, PinMsg>());
-    dispatch::register(store_dispatch::<DisplaysState, DisplayMsg>());
+    dispatch::register(store_dispatch::<PinsStore, PinMsg>());
+    dispatch::register(store_dispatch::<DisplaysStore, DisplayMsg>());
 
     // Receive from backend => dispatch WebEvent messages
     middleware::receive::<WebEvent>(receiver);
 }
 
 // Set the middleware for each store type (PinsState & DisplaysState)
-fn store_dispatch<S, M>() -> impl Dispatch<M> + Clone
+fn store_dispatch<S, M>() -> impl MiddlewareDispatch<M> + Clone
 where
     S: Store + Debug,
     M: Reducer<S> + Debug + 'static,
@@ -131,7 +131,7 @@ fn as_request<M, D>(msg: M, dispatch: D)
 where
     M: Debug + 'static,
     for<'a> &'a M: Into<Option<WebRequest>>,
-    D: Dispatch<M>,
+    D: MiddlewareDispatch<M>,
 {
     if let Some(request) = (&msg).into() {
         dispatch::invoke(request);

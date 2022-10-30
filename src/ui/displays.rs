@@ -34,8 +34,8 @@ impl<'a> From<&'a DisplayMsg> for Option<WebRequest> {
     }
 }
 
-impl Reducer<DisplaysState> for DisplayMsg {
-    fn apply(&self, mut store: Rc<DisplaysState>) -> Rc<DisplaysState> {
+impl Reducer<DisplaysStore> for DisplayMsg {
+    fn apply(&self, mut store: Rc<DisplaysStore>) -> Rc<DisplaysStore> {
         let state = Rc::make_mut(&mut store);
         let vec = &mut state.0;
 
@@ -60,7 +60,7 @@ impl Reducer<DisplaysState> for DisplayMsg {
 }
 
 #[derive(Debug, Default, PartialEq, Eq, Clone, Store)]
-pub struct DisplaysState(Vec<DisplayState>);
+pub struct DisplaysStore(Vec<DisplayState>);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DisplayState {
@@ -70,7 +70,7 @@ pub struct DisplayState {
 
 #[function_component(Displays)]
 pub fn displays() -> Html {
-    let displays = use_store::<DisplaysState>();
+    let displays = use_store_value::<DisplaysStore>();
     let displays = &*displays;
 
     html! {
@@ -91,7 +91,7 @@ pub struct DisplayProps {
 
 #[function_component(Display)]
 pub fn display(props: &DisplayProps) -> Html {
-    let displays = use_store::<DisplaysState>();
+    let displays = use_store_value::<DisplaysStore>();
     let display = &displays.0[props.id as usize];
 
     html! {
@@ -117,7 +117,7 @@ pub struct DisplayCanvasProps {
 
 #[function_component(DisplayCanvas)]
 pub fn display_canvas(props: &DisplayCanvasProps) -> Html {
-    let _fbs = use_store::<FrameBufferStore>(); // To receive change notifications
+    let _fbs = use_store_value::<FrameBufferStore>(); // To receive change notifications
 
     let node_ref = use_node_ref();
     let ctx_ref = use_mut_ref(|| None);
