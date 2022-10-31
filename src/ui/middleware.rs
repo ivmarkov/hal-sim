@@ -143,7 +143,7 @@ mod ws {
             spawn_local(async move {
                 trace!("Sending request: {:?}", msg);
 
-                let guard = sender.lock().await;
+                let mut guard = sender.lock().await;
 
                 guard
                     .send(Message::Bytes(to_allocvec(&msg).unwrap()))
