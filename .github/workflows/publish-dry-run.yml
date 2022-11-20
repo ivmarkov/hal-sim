@@ -21,5 +21,7 @@ jobs:
         run: rustup component add rust-src --toolchain ${{ env.rust_toolchain }}-x86_64-unknown-linux-gnu
       - name: Setup | Default to nightly
         run: rustup default ${{ env.rust_toolchain }}
+      - name: Add wasm target
+        run: rustup target add wasm32-unknown-unknown
       - name: Build | Publish Dry Run
         run: cargo publish --dry-run
