@@ -9,7 +9,7 @@ on:
     - cron: '50 4 * * *'
 
 env:
-  rust_toolchain: nightly
+  rust_toolchain: stable
 
 jobs:
   compile:

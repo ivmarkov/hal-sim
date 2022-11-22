@@ -1,6 +1,7 @@
 # hal-sim - [embedded-hal](https://github.com/rust-embedded/embedded-hal) Simulator
 
 [![CI](https://github.com/ivmarkov/hal-sim/actions/workflows/ci.yml/badge.svg)](https://github.com/ivmarkov/hal-sim/actions/workflows/ci.yml)
+![crates.io](https://img.shields.io/crates/v/hal-sim.svg)
 [![Documentation](https://docs.rs/hal-sim/badge.svg)](https://docs.rs/hal-sim)
 
 (WIP - UNFINISHED)
