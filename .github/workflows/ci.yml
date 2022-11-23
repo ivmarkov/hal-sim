@@ -9,7 +9,7 @@ on:
     - cron: '50 4 * * *'
 
 env:
-  rust_toolchain: stable
+  rust_toolchain: nightly
 
 jobs:
   compile:
@@ -23,7 +23,7 @@ jobs:
         with:
           toolchain: ${{ env.rust_toolchain }}
           components: rustfmt, clippy
-      - name: Setup | Default to nightly
+      - name: Setup | Toolchain
         run: rustup default ${{ env.rust_toolchain }}
       - name: Add wasm target
         run: rustup target add wasm32-unknown-unknown
