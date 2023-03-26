@@ -84,5 +84,5 @@ pub struct StripeUpdate {
     pub id: u8,
     pub row: u16,
     pub start: u16,
-    pub data: heapless::Vec<u8, { SCREEN_MAX_STRIPE_U8_LEN }>,
+    pub data: heapless::Vec<u8, SCREEN_MAX_STRIPE_U8_LEN>,
 }
