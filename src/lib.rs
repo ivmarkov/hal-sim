@@ -1,10 +1,10 @@
 #![allow(clippy::let_unit_value)]
 #![feature(cfg_version)]
-#![cfg_attr(
-    all(feature = "web", not(version("1.65"))),
-    feature(generic_associated_types)
-)]
 #![cfg_attr(feature = "web", feature(type_alias_impl_trait))]
+#![cfg_attr(
+    all(feature = "web", version("1.70")),
+    feature(impl_trait_in_assoc_type)
+)]
 #![cfg_attr(feature = "ui", recursion_limit = "1024")]
 
 #[cfg(feature = "sim")]
