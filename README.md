@@ -4,6 +4,8 @@
 ![crates.io](https://img.shields.io/crates/v/hal-sim.svg)
 [![Documentation](https://docs.rs/hal-sim/badge.svg)](https://docs.rs/hal-sim)
 
+Go to [this page](https://github.com/ivmarkov/ruwm) and click the "DEMO" there link to see the simulator in action!
+
 (WIP - UNFINISHED)
 
 This crate simulates a small portion of the embedded-hal traits. Namely:
