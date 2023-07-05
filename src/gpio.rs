@@ -198,7 +198,7 @@ where
         }
     }
 
-    pub fn subscribe(&mut self, callback: impl Fn() + 'static) {
+    pub fn subscribe(&mut self, callback: impl Fn() + Send + 'static) {
         let mut guard = self.pins.lock().unwrap();
 
         guard[self.id as usize].shared.callback = Some(Box::new(callback));
@@ -334,7 +334,7 @@ pub struct SharedPin {
     meta: PinMeta,
     value: PinValue,
     dropped: bool,
-    callback: Option<Box<dyn Fn()>>,
+    callback: Option<Box<dyn Fn() + Send>>,
 }
 
 impl SharedPin {

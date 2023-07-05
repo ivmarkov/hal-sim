@@ -54,8 +54,9 @@ mod local {
 
     pub fn send<M>(sender: impl Into<channel::DynamicSender<'static, M>>) -> impl Fn(M)
     where
-        M: Debug + 'static,
+        M: Debug + Send + 'static,
     {
+        #[allow(clippy::arc_with_non_send_sync)]
         let sender = Arc::new(Mutex::<CriticalSectionRawMutex, _>::new(sender.into()));
 
         move |msg| {
