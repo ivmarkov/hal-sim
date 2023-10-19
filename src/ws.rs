@@ -67,7 +67,11 @@ pub async fn broadcast(pins: &SharedPins, displays: &SharedDisplays) {
                 let mut changes = changes.lock().unwrap();
 
                 while changes.len() < displays.len() {
-                    changes.push(DisplayChange::Updated(Vec::new(), false));
+                    changes.push(DisplayChange {
+                        created: true,
+                        dropped: false,
+                        screen_updates: Vec::new(),
+                    });
                 }
 
                 changes
