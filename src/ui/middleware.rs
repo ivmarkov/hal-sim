@@ -80,7 +80,7 @@ mod local {
 
         spawn_local(async move {
             loop {
-                let event = receiver.recv().await;
+                let event = receiver.receive().await;
                 trace!("Received event: {:?}", event);
 
                 dispatch::invoke(event);

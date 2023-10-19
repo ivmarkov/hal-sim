@@ -39,14 +39,11 @@ pub struct HalProps {
 pub fn hal(props: &HalProps) -> Html {
     let endpoint = props.endpoint.clone();
 
-    use_effect_with_deps(
-        move |_| {
-            init_middleware(endpoint);
+    use_effect_with((), move |_| {
+        init_middleware(endpoint);
 
-            move || ()
-        },
-        (),
-    );
+        move || ()
+    });
 
     let content = html! {
         <div class="columns">

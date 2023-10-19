@@ -35,24 +35,24 @@ impl<'a> From<&'a DisplayMsg> for Option<WebRequest> {
 }
 
 impl Reducer<DisplaysStore> for DisplayMsg {
-    fn apply(&self, mut store: Rc<DisplaysStore>) -> Rc<DisplaysStore> {
+    fn apply(self, mut store: Rc<DisplaysStore>) -> Rc<DisplaysStore> {
         let state = Rc::make_mut(&mut store);
         let vec = &mut state.0;
 
         if let Self(DisplayUpdate::MetaUpdate { id, meta, dropped }) = self {
-            while vec.len() <= *id as _ {
+            while vec.len() <= id as _ {
                 vec.push(DisplayState {
                     meta: Rc::new(Default::default()),
                     dropped: false,
                 });
             }
 
-            let display: &mut DisplayState = &mut vec[*id as usize];
+            let display: &mut DisplayState = &mut vec[id as usize];
             if let Some(meta) = meta {
                 display.meta = Rc::new(meta.clone());
             }
 
-            display.dropped = *dropped;
+            display.dropped = dropped;
         }
 
         store
@@ -130,28 +130,25 @@ pub fn display_canvas(props: &DisplayCanvasProps) -> Html {
         let width = props.width;
         let height = props.height;
 
-        use_effect_with_deps(
-            move |node_ref| {
-                if ctx_ref.borrow().is_none() {
-                    trace!("[FB DRAW] CONTEXT CREATED");
+        use_effect_with(node_ref, move |node_ref| {
+            if ctx_ref.borrow().is_none() {
+                trace!("[FB DRAW] CONTEXT CREATED");
 
-                    let ctx = create_draw_context(node_ref, width, height);
-                    FrameBuffer::blit(id, true, |image_data, x, y| {
-                        ctx.put_image_data(image_data, x as _, y as _).unwrap();
+                let ctx = create_draw_context(node_ref, width, height);
+                FrameBuffer::blit(id, true, |image_data, x, y| {
+                    ctx.put_image_data(image_data, x as _, y as _).unwrap();
 
-                        trace!("[FB DRAW] SCREEN FULL BLIT");
-                    });
+                    trace!("[FB DRAW] SCREEN FULL BLIT");
+                });
 
-                    *ctx_ref.borrow_mut() = Some(ctx);
-                }
+                *ctx_ref.borrow_mut() = Some(ctx);
+            }
 
-                move || {
-                    trace!("[FB DRAW] CONTEXT DROPPED");
-                    *ctx_ref.borrow_mut() = None;
-                }
-            },
-            node_ref,
-        );
+            move || {
+                trace!("[FB DRAW] CONTEXT DROPPED");
+                *ctx_ref.borrow_mut() = None;
+            }
+        });
     }
 
     {

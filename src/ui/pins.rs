@@ -35,7 +35,7 @@ impl<'a> From<&'a PinMsg> for Option<WebRequest> {
 }
 
 impl Reducer<PinsStore> for PinMsg {
-    fn apply(&self, mut store: Rc<PinsStore>) -> Rc<PinsStore> {
+    fn apply(self, mut store: Rc<PinsStore>) -> Rc<PinsStore> {
         let state = Rc::make_mut(&mut store);
         let vec = &mut state.0;
 
@@ -288,7 +288,7 @@ pub fn pin(props: &PinProps) -> Html {
                     pin_input_high.then_some("has-text-weight-bold"),
                 )}
             >
-                { pin.meta.name.clone() }
+                { pin.meta.name.as_str() }
             </span>
             { pin_input_html }
         </>

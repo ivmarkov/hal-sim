@@ -8,7 +8,10 @@ description = "An embedded-hal and embedded-graphics Display simulator."
 repository = "https://github.com/ivmarkov/hal-sim"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
-rust-version = "1.67"
+rust-version = "1.71"
+
+[patch.crates-io]
+yewdux-middleware = { git = "https://github.com/ivmarkov/yewdux-middleware" }
 
 [features]
 default = ["nightly", "ui", "web", "middleware-local"]
@@ -28,26 +31,26 @@ log = "0.4"
 # sim
 nb = { version = "1", optional = true }
 embedded-hal = { version = "0.2", features = ["unproven"], optional = true }
-embedded-graphics-core = { version = "0.3", optional = true }
+embedded-graphics-core = { version = "0.4", optional = true }
 
 # web
 futures = { version = "0.3", optional = true }
 embassy-futures = { version = "0.1", optional = true }
-embassy-sync = { version = "0.2", optional = true }
-channel-bridge = { version = "0.3", default-features = false, features = ["nightly", "embedded-svc", "notification"], optional = true }
-gloo-net = { version = "0.2", optional = true }
+embassy-sync = { version = "0.3", optional = true }
+channel-bridge = { version = "0.5", default-features = false, features = ["nightly", "embedded-svc"], optional = true }
+gloo-net = { version = "0.4", optional = true }
 postcard = { version = "1", optional = true }
 
 # ws
-embedded-svc = { version = "0.25", default-features = false, features = ["nightly"], optional = true }
+embedded-svc = { version = "0.26", default-features = false, features = ["nightly"], optional = true }
 
 # ui
-yew = { version = "0.19", default-features = false, optional = true }
-yewdux = { version = "0.8.3", default-features = false, optional = true }
+yew = { version = "0.21", default-features = false, optional = true, features = ["csr"] }
+yewdux = { version = "0.9", default-features = false, optional = true }
 yewdux-middleware = { version = "0.1", optional = true }
 wasm-logger = { version = "0.2", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 wasm-bindgen-futures = { version = "0.4", optional = true }
 web-sys = { version = "0.3", optional = true, features = ["console", "CanvasRenderingContext2d", "ImageData", "HtmlCanvasElement"] }
-itertools = { version = "0.10", optional = true }
-gloo-timers = { version = "0.2", optional = true }
+itertools = { version = "0.11", optional = true }
+gloo-timers = { version = "0.3", optional = true }
