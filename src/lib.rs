@@ -1,10 +1,9 @@
 #![allow(clippy::let_unit_value)]
-#![feature(cfg_version)]
-#![cfg_attr(feature = "web", feature(type_alias_impl_trait))]
-#![cfg_attr(
-    all(feature = "web", version("1.70")),
-    feature(impl_trait_in_assoc_type)
-)]
+#![allow(stable_features)]
+#![allow(unknown_lints)]
+#![cfg_attr(feature = "nightly", feature(async_fn_in_trait))]
+#![cfg_attr(feature = "nightly", allow(async_fn_in_trait))]
+#![cfg_attr(feature = "nightly", feature(impl_trait_projections))]
 #![cfg_attr(feature = "ui", recursion_limit = "1024")]
 
 #[cfg(feature = "sim")]
@@ -20,5 +19,3 @@ pub mod peripherals;
 pub mod ui;
 #[cfg(feature = "web")]
 pub mod web;
-#[cfg(feature = "ws")]
-pub mod ws;

@@ -3,10 +3,12 @@ use core::marker::PhantomData;
 
 extern crate alloc;
 use alloc::sync::Arc;
+use channel_bridge::notification::Notification;
 
 use std::sync::Mutex;
 
-use embedded_hal::digital::v2::{InputPin, OutputPin};
+use embedded_hal::digital::{ErrorType, InputPin, OutputPin};
+use embedded_hal02::digital::v2::{InputPin as InputPin02, OutputPin as OutputPin02};
 
 use crate::adc::AdcTrait;
 
@@ -174,7 +176,7 @@ pub struct Pin<MODE> {
 }
 
 impl<MODE> Pin<MODE> {
-    const fn new(id: u8, pins: SharedPins, changed: PinsChangedCallback) -> Self {
+    fn new(id: u8, pins: SharedPins, changed: PinsChangedCallback) -> Self {
         Self {
             id,
             pins,
@@ -182,6 +184,14 @@ impl<MODE> Pin<MODE> {
             _mode: PhantomData,
         }
     }
+}
+
+#[cfg(feature = "nightly")]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+enum WaitType {
+    LowLevel,
+    HighLevel,
+    Edge,
 }
 
 impl<MODE> Pin<MODE>
@@ -196,6 +206,35 @@ where
             PinValue::InputOutput { input: value, .. } => value,
             _ => unreachable!(),
         }
+    }
+
+    #[cfg(feature = "nightly")]
+    async fn wait(&self, wait_type: WaitType) {
+        let notif = {
+            let guard = self.pins.lock().unwrap();
+
+            let notif = guard[self.id as usize].shared.notification();
+
+            notif.reset();
+
+            notif
+        };
+
+        match wait_type {
+            WaitType::LowLevel => {
+                if !self.is_high() {
+                    return;
+                }
+            }
+            WaitType::HighLevel => {
+                if self.is_high() {
+                    return;
+                }
+            }
+            _ => (),
+        }
+
+        notif.wait().await;
     }
 
     pub fn subscribe(&mut self, callback: impl Fn() + Send + 'static) {
@@ -268,7 +307,60 @@ impl<MODE> Drop for Pin<MODE> {
     }
 }
 
+impl<MODE> ErrorType for Pin<MODE> {
+    type Error = Infallible;
+}
+
 impl<MODE> InputPin for Pin<MODE>
+where
+    MODE: InputMode,
+{
+    fn is_high(&self) -> Result<bool, Self::Error> {
+        Ok(Pin::is_high(self))
+    }
+
+    fn is_low(&self) -> Result<bool, Self::Error> {
+        Ok(!Pin::is_high(self))
+    }
+}
+
+#[cfg(feature = "nightly")]
+impl<MODE> embedded_hal_async::digital::Wait for Pin<MODE>
+where
+    MODE: InputMode,
+{
+    async fn wait_for_high(&mut self) -> Result<(), Self::Error> {
+        self.wait(WaitType::HighLevel).await;
+
+        Ok(())
+    }
+
+    async fn wait_for_low(&mut self) -> Result<(), Self::Error> {
+        self.wait(WaitType::LowLevel).await;
+
+        Ok(())
+    }
+
+    async fn wait_for_rising_edge(&mut self) -> Result<(), Self::Error> {
+        self.wait(WaitType::Edge).await; // TODO
+
+        Ok(())
+    }
+
+    async fn wait_for_falling_edge(&mut self) -> Result<(), Self::Error> {
+        self.wait(WaitType::Edge).await; // TODO
+
+        Ok(())
+    }
+
+    async fn wait_for_any_edge(&mut self) -> Result<(), Self::Error> {
+        self.wait(WaitType::Edge).await;
+
+        Ok(())
+    }
+}
+
+impl<MODE> InputPin02 for Pin<MODE>
 where
     MODE: InputMode,
 {
@@ -284,6 +376,21 @@ where
 }
 
 impl<MODE> OutputPin for Pin<MODE>
+where
+    MODE: OutputMode,
+{
+    fn set_low(&mut self) -> Result<(), Self::Error> {
+        Pin::set_output(self, false);
+        Ok(())
+    }
+
+    fn set_high(&mut self) -> Result<(), Self::Error> {
+        Pin::set_output(self, true);
+        Ok(())
+    }
+}
+
+impl<MODE> OutputPin02 for Pin<MODE>
 where
     MODE: OutputMode,
 {
@@ -306,7 +413,7 @@ pub struct PinState {
 }
 
 impl PinState {
-    const fn new(name: PinName, category: PinCategory, pin_type: PinType, value: PinValue) -> Self {
+    fn new(name: PinName, category: PinCategory, pin_type: PinType, value: PinValue) -> Self {
         Self {
             shared: SharedPin::new(name, category, pin_type, value),
             change: Change::Created,
@@ -335,10 +442,11 @@ pub struct SharedPin {
     value: PinValue,
     dropped: bool,
     callback: Option<Box<dyn Fn() + Send>>,
+    notification: Arc<Notification>,
 }
 
 impl SharedPin {
-    const fn new(name: PinName, category: PinCategory, pin_type: PinType, value: PinValue) -> Self {
+    fn new(name: PinName, category: PinCategory, pin_type: PinType, value: PinValue) -> Self {
         Self {
             meta: PinMeta {
                 name,
@@ -348,6 +456,7 @@ impl SharedPin {
             value,
             dropped: false,
             callback: None,
+            notification: Arc::new(Notification::new()),
         }
     }
 
@@ -361,6 +470,10 @@ impl SharedPin {
 
     pub fn dropped(&self) -> bool {
         self.dropped
+    }
+
+    pub fn notification(&self) -> Arc<Notification> {
+        self.notification.clone()
     }
 
     pub fn set_discrete_input(&mut self, high: bool) {
@@ -385,6 +498,8 @@ impl SharedPin {
                 if let Some(callback) = self.callback.as_ref() {
                     (callback)();
                 }
+
+                self.notification.notify();
             }
         }
     }
@@ -407,6 +522,8 @@ impl SharedPin {
                 if let Some(callback) = self.callback.as_ref() {
                     (callback)();
                 }
+
+                self.notification.notify();
             }
         }
     }

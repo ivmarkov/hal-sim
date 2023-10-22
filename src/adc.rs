@@ -1,7 +1,7 @@
 use core::convert::Infallible;
 use core::marker::PhantomData;
 
-use embedded_hal::adc::{Channel, OneShot};
+use embedded_hal02::adc::{Channel, OneShot};
 
 use crate::gpio::Pin;
 
