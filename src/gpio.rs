@@ -27,9 +27,10 @@ impl OutputMode for InputOutput {}
 
 pub use crate::dto::gpio::*;
 
+pub(crate) static PINS: Mutex<Vec<PinState>> = Mutex::new(Vec::new());
+
 pub struct Pins {
     id_gen: u8,
-    shared: SharedPins,
     changed: PinsChangedCallback,
 }
 
@@ -37,13 +38,8 @@ impl Pins {
     pub(crate) fn new(changed: impl Fn() + 'static) -> Self {
         Self {
             id_gen: 0,
-            shared: Arc::new(Mutex::new(Vec::new())),
             changed: Arc::new(changed),
         }
-    }
-
-    pub(crate) fn shared(&self) -> &SharedPins {
-        &self.shared
     }
 
     pub fn input(
@@ -157,29 +153,26 @@ impl Pins {
         let state = PinState::new(name.into(), category.into(), pin_type, value);
 
         {
-            let mut states = self.shared.lock().unwrap();
+            let mut states = PINS.lock().unwrap();
             states.push(state);
         }
 
-        Pin::new(id, self.shared.clone(), self.changed.clone())
+        Pin::new(id, self.changed.clone())
     }
 }
 
-pub type SharedPins = Arc<Mutex<Vec<PinState>>>;
 pub type PinsChangedCallback = Arc<dyn Fn()>;
 
 pub struct Pin<MODE> {
     id: u8,
-    pins: SharedPins,
     changed: PinsChangedCallback,
     _mode: PhantomData<MODE>,
 }
 
 impl<MODE> Pin<MODE> {
-    fn new(id: u8, pins: SharedPins, changed: PinsChangedCallback) -> Self {
+    fn new(id: u8, changed: PinsChangedCallback) -> Self {
         Self {
             id,
-            pins,
             changed,
             _mode: PhantomData,
         }
@@ -199,7 +192,7 @@ where
     MODE: InputMode,
 {
     fn is_high(&self) -> bool {
-        let guard = self.pins.lock().unwrap();
+        let guard = PINS.lock().unwrap();
 
         match guard[self.id as usize].shared.value {
             PinValue::Input(value) => value,
@@ -211,7 +204,7 @@ where
     #[cfg(feature = "nightly")]
     async fn wait(&self, wait_type: WaitType) {
         let notif = {
-            let guard = self.pins.lock().unwrap();
+            let guard = PINS.lock().unwrap();
 
             let notif = guard[self.id as usize].shared.notification();
 
@@ -238,13 +231,13 @@ where
     }
 
     pub fn subscribe(&mut self, callback: impl Fn() + Send + 'static) {
-        let mut guard = self.pins.lock().unwrap();
+        let mut guard = PINS.lock().unwrap();
 
         guard[self.id as usize].shared.callback = Some(Box::new(callback));
     }
 
     pub fn unsubscribe(&mut self) {
-        let mut guard = self.pins.lock().unwrap();
+        let mut guard = PINS.lock().unwrap();
 
         guard[self.id as usize].shared.callback = None;
     }
@@ -256,7 +249,7 @@ where
 {
     fn set_output(&mut self, high: bool) {
         let changed = {
-            let mut guard = self.pins.lock().unwrap();
+            let mut guard = PINS.lock().unwrap();
             let pin = &mut guard[self.id as usize];
 
             match &mut pin.shared.value {
@@ -285,7 +278,7 @@ where
     MODE: AdcTrait,
 {
     pub(crate) fn get_input(&self) -> u16 {
-        let guard = self.pins.lock().unwrap();
+        let guard = PINS.lock().unwrap();
 
         match guard[self.id as usize].shared.value {
             PinValue::Adc(value) => value,
@@ -297,7 +290,7 @@ where
 impl<MODE> Drop for Pin<MODE> {
     fn drop(&mut self) {
         {
-            let mut guard = self.pins.lock().unwrap();
+            let mut guard = PINS.lock().unwrap();
 
             guard[self.id as usize].shared.dropped = true;
             guard[self.id as usize].change.update(&Change::Updated);

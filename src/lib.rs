@@ -13,9 +13,9 @@ pub mod display;
 pub mod dto;
 #[cfg(feature = "sim")]
 pub mod gpio;
+#[cfg(all(feature = "io", feature = "nightly"))]
+pub mod io;
 #[cfg(feature = "sim")]
 pub mod peripherals;
 #[cfg(feature = "ui")]
 pub mod ui;
-#[cfg(feature = "web")]
-pub mod web;

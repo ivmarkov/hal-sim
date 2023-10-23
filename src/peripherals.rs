@@ -6,10 +6,10 @@ extern crate alloc;
 use alloc::sync::Arc;
 
 use crate::adc::Adc;
-use crate::display::{Displays, SharedDisplays};
-use crate::gpio::{Pins, SharedPins};
+use crate::display::{Change as DisplayChange, Displays, SharedDisplay, DISPLAYS};
+use crate::gpio::{Change as PinChange, Pins, SharedPin, PINS};
 
-pub type SharedPeripherals = (SharedPins, SharedDisplays);
+pub use crate::dto::web::*;
 
 #[derive(Debug)]
 pub enum TakeError {
@@ -64,7 +64,138 @@ impl Peripherals {
         }
     }
 
-    pub fn shared(&self) -> SharedPeripherals {
-        (self.pins.shared().clone(), self.displays.shared().clone())
+    pub fn apply(request: WebRequest) {
+        let mut pins = PINS.lock().unwrap();
+
+        let WebRequest::PinInputUpdate(update) = request;
+
+        match update {
+            PinInputUpdate::Discrete(id, high) => {
+                pins[id as usize].pin_mut().set_discrete_input(high);
+            }
+            PinInputUpdate::Analog(id, input) => {
+                pins[id as usize].pin_mut().set_analog_input(input);
+            }
+        }
+    }
+
+    pub fn fetch(
+        pins_changes: &mut Option<Vec<PinChange>>,
+        displays_changes: &mut Option<Vec<DisplayChange>>,
+    ) -> Option<WebEvent> {
+        if let Some(event) = Self::find_pin_change(pins_changes) {
+            Some(event)
+        } else {
+            Self::find_display_change(displays_changes)
+        }
+    }
+
+    fn find_pin_change(changes: &mut Option<Vec<PinChange>>) -> Option<WebEvent> {
+        let mut states = PINS.lock().unwrap();
+
+        states.iter_mut().enumerate().find_map(|(id, state)| {
+            if let Some(changes) = changes.as_deref_mut() {
+                if id < changes.len() {
+                    Self::consume_pin_change(id as u8, state.pin(), &mut (*changes)[id])
+                } else {
+                    None
+                }
+            } else {
+                let (display, changed_state) = state.split();
+
+                Self::consume_pin_change(id as u8, display, changed_state)
+            }
+        })
+    }
+
+    fn consume_pin_change(id: u8, pin: &SharedPin, change: &mut PinChange) -> Option<WebEvent> {
+        if *change != PinChange::None {
+            let event = Some(WebEvent::PinUpdate(PinUpdate {
+                id,
+                meta: if *change == PinChange::Created {
+                    Some(pin.meta().clone())
+                } else {
+                    None
+                },
+                dropped: pin.dropped(),
+                value: *pin.value(),
+            }));
+
+            change.reset();
+
+            event
+        } else {
+            None
+        }
+    }
+
+    fn find_display_change(changes: &mut Option<Vec<DisplayChange>>) -> Option<WebEvent> {
+        let mut states = DISPLAYS.lock().unwrap();
+
+        states.iter_mut().enumerate().find_map(|(id, state)| {
+            if let Some(changes) = changes.as_deref_mut() {
+                if id < changes.len() {
+                    Self::consume_display_change(id as u8, state.display(), &mut (*changes)[id])
+                } else {
+                    None
+                }
+            } else {
+                let (display, change) = state.split();
+
+                Self::consume_display_change(id as u8, display, change)
+            }
+        })
+    }
+
+    fn consume_display_change(
+        id: u8,
+        display: &SharedDisplay,
+        change: &mut DisplayChange,
+    ) -> Option<WebEvent> {
+        if change.created || change.dropped {
+            let event = Some(WebEvent::DisplayUpdate(DisplayUpdate::MetaUpdate {
+                id,
+                meta: change.created.then_some(display.meta().clone()),
+                dropped: display.dropped(),
+            }));
+
+            change.created = false;
+            change.dropped = false;
+
+            event
+        } else {
+            let changed_row = change
+                .screen_updates
+                .iter_mut()
+                .enumerate()
+                .find_map(|(row, (start, end))| (*start < *end).then_some((row, start, end)));
+
+            if let Some((row, start, end)) = changed_row {
+                let event = Some(WebEvent::DisplayUpdate(DisplayUpdate::StripeUpdate(
+                    StripeUpdate {
+                        id,
+                        row: row as _,
+                        start: *start as _,
+                        data: {
+                            let row_data = &display.buffer()[row * display.meta().width..];
+
+                            row_data[*start..*end].iter()
+                                .flat_map(|pixel| {
+                                    let bytes = pixel.to_be_bytes();
+                                    [bytes[1], bytes[2], bytes[3]]
+                                })
+                                .collect::<heapless::Vec<_, { crate::dto::web::SCREEN_MAX_STRIPE_U8_LEN }>>()
+                        },
+                    },
+                )));
+
+                *start = 0;
+                *end = 0;
+
+                event
+            } else {
+                None
+            }
+        }
     }
 }

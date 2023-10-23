@@ -15,9 +15,10 @@ use embedded_graphics_core::{
 
 pub use crate::dto::display::*;
 
+pub(crate) static DISPLAYS: Mutex<Vec<DisplayState>> = Mutex::new(Vec::new());
+
 pub struct Displays {
     id_gen: u8,
-    shared: SharedDisplays,
     changed: DisplaysChangedCallback,
 }
 
@@ -25,13 +26,8 @@ impl Displays {
     pub(crate) fn new(changed: impl Fn() + 'static) -> Self {
         Self {
             id_gen: 0,
-            shared: Arc::new(Mutex::new(Vec::new())),
             changed: Arc::new(changed),
         }
-    }
-
-    pub(crate) fn shared(&self) -> &SharedDisplays {
-        &self.shared
     }
 
     pub fn display<C>(
@@ -50,20 +46,18 @@ impl Displays {
         let state = DisplayState::new(name.into(), width, height);
 
         {
-            let mut states = self.shared.lock().unwrap();
+            let mut states = DISPLAYS.lock().unwrap();
             states.push(state);
         }
 
-        Display::new(id, self.shared.clone(), self.changed.clone(), converter)
+        Display::new(id, self.changed.clone(), converter)
     }
 }
 
-pub type SharedDisplays = Arc<Mutex<Vec<DisplayState>>>;
 pub type DisplaysChangedCallback = Arc<dyn Fn()>;
 
 pub struct Display<C> {
     id: u8,
-    displays: SharedDisplays,
     changed: Arc<dyn Fn()>,
     converter: Box<dyn Fn(C) -> u32>,
 }
@@ -72,15 +66,9 @@ impl<C> Display<C>
 where
     C: Clone + Default,
 {
-    fn new(
-        id: u8,
-        displays: SharedDisplays,
-        changed: Arc<dyn Fn()>,
-        converter: impl Fn(C) -> u32 + 'static,
-    ) -> Self {
+    fn new(id: u8, changed: Arc<dyn Fn()>, converter: impl Fn(C) -> u32 + 'static) -> Self {
         Self {
             id,
-            displays,
             changed,
             converter: Box::new(converter),
         }
@@ -90,7 +78,7 @@ where
 impl<C> Drop for Display<C> {
     fn drop(&mut self) {
         {
-            let mut guard = self.displays.lock().unwrap();
+            let mut guard = DISPLAYS.lock().unwrap();
             let state = &mut guard[self.id as usize];
 
             state.display.dropped = true;
@@ -114,7 +102,7 @@ where
         I: IntoIterator<Item = Pixel<Self::Color>>,
     {
         let changed = {
-            let mut guard = self.displays.lock().unwrap();
+            let mut guard = DISPLAYS.lock().unwrap();
 
             guard[self.id as usize].draw_iter(
                 pixels
@@ -133,7 +121,7 @@ where
 
 impl<C> Dimensions for Display<C> {
     fn bounding_box(&self) -> Rectangle {
-        let guard = self.displays.lock().unwrap();
+        let guard = DISPLAYS.lock().unwrap();
 
         let state = &guard[self.id as usize];
 

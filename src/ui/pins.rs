@@ -8,7 +8,7 @@ use yew::prelude::*;
 use yewdux_middleware::*;
 
 use crate::dto::gpio::*;
-use crate::web::{PinInputUpdate, PinUpdate, WebEvent, WebRequest};
+use crate::dto::web::*;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PinMsg {

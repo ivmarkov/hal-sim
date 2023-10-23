@@ -12,7 +12,7 @@ use wasm_bindgen::JsCast;
 use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement};
 
 use crate::dto::display::*;
-use crate::web::{DisplayUpdate, WebEvent, WebRequest};
+use crate::dto::web::*;
 
 use super::fb::{FrameBuffer, FrameBufferStore};
 

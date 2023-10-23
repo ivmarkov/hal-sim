@@ -1,14 +1,17 @@
 use core::fmt::Debug;
 
-use log::{log, Level};
-
 use yewdux_middleware::*;
 
-#[cfg(feature = "middleware-local")]
-pub use local::*;
+use log::{log, Level};
 
-#[cfg(feature = "middleware-ws")]
-pub use ws::*;
+extern crate alloc;
+use alloc::rc::Rc;
+
+use super::*;
+use crate::dto::web::*;
+
+#[cfg(feature = "nightly")]
+pub use io::*;
 
 pub fn log_msg<M, D>(level: Level) -> impl Fn(M, D)
 where
@@ -37,106 +40,125 @@ where
     }
 }
 
-#[cfg(feature = "middleware-local")]
-mod local {
+pub fn hook<S, R>(send: S, receive: R)
+where
+    S: Fn(WebRequest) + 'static,
+    R: FnOnce() + 'static,
+{
+    // Dispatch WebRequest messages => send to backend
+    dispatch::register(send);
+
+    // Dispatch WebEvent messages => redispatch as PinMsg or DisplayMsg messages
+    dispatch::register::<WebEvent, _>(|event| {
+        if let Some(msg) = PinMsg::from_event(&event) {
+            dispatch::invoke(msg);
+        } else if let Some(msg) = DisplayMsg::from_event(&event) {
+            FrameBuffer::update(&msg);
+            dispatch::invoke(msg);
+        }
+    });
+
+    dispatch::register(store_dispatch::<PinsStore, PinMsg>());
+    dispatch::register(store_dispatch::<DisplaysStore, DisplayMsg>());
+
+    // Receive from backend => dispatch WebEvent messages
+    receive();
+}
+
+// Set the middleware for each store type (PinsState & DisplaysState)
+fn store_dispatch<S, M>() -> impl MiddlewareDispatch<M> + Clone
+where
+    S: Store + Debug,
+    M: Reducer<S> + Debug + 'static,
+    for<'a> &'a M: Into<Option<WebRequest>>,
+{
+    // Update store
+    dispatch::store
+        // PinMsg => WebRequest
+        .fuse(as_request)
+        // Log store before/after dispatching
+        .fuse(Rc::new(log_store(Level::Trace)))
+        // Log msg before dispatching
+        .fuse(Rc::new(log_msg(Level::Trace)))
+}
+
+fn as_request<M, D>(msg: M, dispatch: D)
+where
+    M: Debug + 'static,
+    for<'a> &'a M: Into<Option<WebRequest>>,
+    D: MiddlewareDispatch<M>,
+{
+    if let Some(request) = (&msg).into() {
+        dispatch::invoke(request);
+    }
+
+    dispatch.invoke(msg);
+}
+
+#[cfg(feature = "nightly")]
+mod io {
     use core::fmt::Debug;
 
-    extern crate alloc;
-    use alloc::sync::Arc;
+    use channel_bridge::asynch::ws::{WsWebReceiver, WsWebSender};
+    use channel_bridge::asynch::{Receiver, Sender};
 
     use log::trace;
 
-    use wasm_bindgen_futures::spawn_local;
+    use embassy_sync::{
+        blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex},
+        channel,
+        mutex::Mutex,
+    };
 
-    use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel, mutex::Mutex};
+    use wasm_bindgen_futures::spawn_local;
 
     use yewdux_middleware::*;
 
-    pub fn send<M>(sender: impl Into<channel::DynamicSender<'static, M>>) -> impl Fn(M)
-    where
-        M: Debug + Send + 'static,
-    {
-        #[allow(clippy::arc_with_non_send_sync)]
-        let sender = Arc::new(Mutex::<CriticalSectionRawMutex, _>::new(sender.into()));
+    extern crate alloc;
+    use alloc::rc::Rc;
 
-        move |msg| {
-            let sender = sender.clone();
+    use super::*;
 
-            spawn_local(async move {
-                trace!("Sending request: {:?}", msg);
+    use gloo_net::websocket::futures::WebSocket;
 
-                let guard = sender.lock().await;
+    use futures::StreamExt;
 
-                guard.send(msg).await;
+    pub fn init(endpoint: Option<&str>) {
+        if let Some(endpoint) = endpoint {
+            let (sender, receiver) = WebSocket::open(&format!(
+                "ws://{}/{}",
+                web_sys::window().unwrap().location().host().unwrap(),
+                endpoint,
+            ))
+            .unwrap_or_else(|_| panic!("Failed to open websocket"))
+            .split();
+
+            hook(send(WsWebSender::new(sender)), move || {
+                receive(WsWebReceiver::<WebEvent>::new(receiver))
             });
+        } else {
+            pub(crate) static REQUEST_QUEUE: channel::Channel<
+                CriticalSectionRawMutex,
+                WebRequest,
+                1,
+            > = channel::Channel::new();
+            pub(crate) static EVENT_QUEUE: channel::Channel<CriticalSectionRawMutex, WebEvent, 1> =
+                channel::Channel::new();
+
+            hook(send(REQUEST_QUEUE.sender()), move || {
+                receive(EVENT_QUEUE.receiver())
+            });
+
+            process_local(EVENT_QUEUE.sender(), REQUEST_QUEUE.receiver());
         }
     }
 
-    pub fn receive<M>(receiver: impl Into<channel::DynamicReceiver<'static, M>>)
+    fn send<S>(sender: S) -> impl Fn(S::Data)
     where
-        M: Debug + 'static,
+        S: Sender + 'static,
+        S::Data: Debug + 'static,
     {
-        let receiver = receiver.into();
-
-        spawn_local(async move {
-            loop {
-                let event = receiver.receive().await;
-                trace!("Received event: {:?}", event);
-
-                dispatch::invoke(event);
-            }
-        });
-    }
-}
-
-#[cfg(feature = "middleware-ws")]
-mod ws {
-    use core::fmt::Debug;
-
-    extern crate alloc;
-    use alloc::sync::Arc;
-
-    use serde::{de::DeserializeOwned, Serialize};
-
-    use log::trace;
-
-    use futures::stream::{SplitSink, SplitStream};
-    use futures::{SinkExt, StreamExt};
-
-    use gloo_net::websocket::{futures::WebSocket, Message};
-
-    use postcard::to_allocvec;
-
-    use wasm_bindgen::JsError;
-    use wasm_bindgen_futures::spawn_local;
-
-    use yewdux_middleware::dispatch;
-
-    use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, mutex::Mutex};
-
-    pub fn open(
-        ws_endpoint: &str,
-    ) -> Result<(SplitSink<WebSocket, Message>, SplitStream<WebSocket>), JsError> {
-        open_url(&format!(
-            "ws://{}/{}",
-            web_sys::window().unwrap().location().host().unwrap(),
-            ws_endpoint,
-        ))
-    }
-
-    fn open_url(
-        url: &str,
-    ) -> Result<(SplitSink<WebSocket, Message>, SplitStream<WebSocket>), JsError> {
-        let ws = WebSocket::open(url)?;
-
-        Ok(ws.split())
-    }
-
-    pub fn send<M>(sender: SplitSink<WebSocket, Message>) -> impl Fn(M)
-    where
-        M: Serialize + Debug + 'static,
-    {
-        let sender = Arc::new(Mutex::<CriticalSectionRawMutex, _>::new(sender));
+        let sender = Rc::new(Mutex::<NoopRawMutex, _>::new(sender));
 
         move |msg| {
             let sender = sender.clone();
@@ -146,25 +168,33 @@ mod ws {
 
                 let mut guard = sender.lock().await;
 
-                guard
-                    .send(Message::Bytes(to_allocvec(&msg).unwrap()))
-                    .await
-                    .unwrap();
+                guard.send(msg).await.unwrap();
             });
         }
     }
 
-    pub fn receive<M>(mut receiver: SplitStream<WebSocket>)
+    fn receive<R>(mut receiver: R)
     where
-        M: DeserializeOwned + Debug + 'static,
+        R: Receiver + 'static,
+        R::Data: Debug + 'static,
     {
         spawn_local(async move {
             loop {
-                let event = receiver.next().await.unwrap().unwrap();
+                let event = receiver.recv().await.unwrap();
                 trace!("Received event: {:?}", event);
 
                 dispatch::invoke(event);
             }
+        });
+    }
+
+    fn process_local<S, R>(sender: S, receiver: R)
+    where
+        S: Sender<Data = WebEvent> + 'static,
+        R: Receiver<Data = WebRequest, Error = S::Error> + 'static,
+    {
+        spawn_local(async move {
+            crate::io::process(sender, receiver).await;
         });
     }
 }

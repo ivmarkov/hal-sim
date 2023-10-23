@@ -11,7 +11,7 @@ use yewdux::dispatch;
 use yewdux_middleware::Store;
 
 use crate::dto::display::*;
-use crate::web::{self, DisplayUpdate, StripeUpdate};
+use crate::dto::web::*;
 
 use super::displays::DisplayMsg;
 
@@ -92,7 +92,7 @@ impl FrameBuffer {
     }
 
     fn update_changes(&mut self, update: &StripeUpdate) {
-        let pixel_len = update.data.len() / web::STRIPE_PIXEL_SIZE;
+        let pixel_len = update.data.len() / STRIPE_PIXEL_SIZE;
 
         self.change.update_row(
             update.row as _,
