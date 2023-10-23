@@ -97,6 +97,7 @@ where
 
 #[cfg(feature = "nightly")]
 mod io {
+    use core::cell::RefCell;
     use core::fmt::Debug;
 
     use channel_bridge::asynch::ws::{WsWebReceiver, WsWebSender};
@@ -104,11 +105,7 @@ mod io {
 
     use log::trace;
 
-    use embassy_sync::{
-        blocking_mutex::raw::{CriticalSectionRawMutex, NoopRawMutex},
-        channel,
-        mutex::Mutex,
-    };
+    use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel};
 
     use wasm_bindgen_futures::spawn_local;
 
@@ -156,12 +153,13 @@ mod io {
         }
     }
 
+    #[allow(clippy::await_holding_refcell_ref)]
     fn send<S>(sender: S) -> impl Fn(S::Data)
     where
         S: Sender + 'static,
         S::Data: Debug + 'static,
     {
-        let sender = Rc::new(Mutex::<NoopRawMutex, _>::new(sender));
+        let sender = Rc::new(RefCell::new(sender));
 
         move |msg| {
             let sender = sender.clone();
@@ -169,7 +167,7 @@ mod io {
             spawn_local(async move {
                 trace!("Sending request: {:?}", msg);
 
-                let mut guard = sender.lock().await;
+                let mut guard = sender.borrow_mut();
 
                 guard.send(msg).await.unwrap();
             });
