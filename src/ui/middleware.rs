@@ -8,7 +8,7 @@ extern crate alloc;
 use alloc::rc::Rc;
 
 use super::*;
-use crate::dto::web::*;
+use crate::dto::*;
 
 #[cfg(feature = "nightly")]
 pub use io::*;
@@ -42,14 +42,14 @@ where
 
 pub fn hook<S, R>(send: S, receive: R)
 where
-    S: Fn(WebRequest) + 'static,
+    S: Fn(UpdateRequest) + 'static,
     R: FnOnce() + 'static,
 {
-    // Dispatch WebRequest messages => send to backend
+    // Dispatch UpdateRequest messages => send to backend
     dispatch::register(send);
 
-    // Dispatch WebEvent messages => redispatch as PinMsg or DisplayMsg messages
-    dispatch::register::<WebEvent, _>(|event| {
+    // Dispatch UpdateEvent messages => redispatch as PinMsg or DisplayMsg messages
+    dispatch::register::<UpdateEvent, _>(|event| {
         if let Some(msg) = PinMsg::from_event(&event) {
             dispatch::invoke(msg);
         } else if let Some(msg) = DisplayMsg::from_event(&event) {
@@ -61,7 +61,7 @@ where
     dispatch::register(store_dispatch::<PinsStore, PinMsg>());
     dispatch::register(store_dispatch::<DisplaysStore, DisplayMsg>());
 
-    // Receive from backend => dispatch WebEvent messages
+    // Receive from backend => dispatch UpdateEvent messages
     receive();
 }
 
@@ -70,11 +70,11 @@ fn store_dispatch<S, M>() -> impl MiddlewareDispatch<M> + Clone
 where
     S: Store + Debug,
     M: Reducer<S> + Debug + 'static,
-    for<'a> &'a M: Into<Option<WebRequest>>,
+    for<'a> &'a M: Into<Option<UpdateRequest>>,
 {
     // Update store
     dispatch::store
-        // PinMsg => WebRequest
+        // PinMsg => UpdateRequest
         .fuse(as_request)
         // Log store before/after dispatching
         .fuse(Rc::new(log_store(Level::Trace)))
@@ -85,7 +85,7 @@ where
 fn as_request<M, D>(msg: M, dispatch: D)
 where
     M: Debug + 'static,
-    for<'a> &'a M: Into<Option<WebRequest>>,
+    for<'a> &'a M: Into<Option<UpdateRequest>>,
     D: MiddlewareDispatch<M>,
 {
     if let Some(request) = (&msg).into() {
@@ -134,16 +134,19 @@ mod io {
             .split();
 
             hook(send(WsWebSender::new(sender)), move || {
-                receive(WsWebReceiver::<WebEvent>::new(receiver))
+                receive(WsWebReceiver::<UpdateEvent>::new(receiver))
             });
         } else {
             pub(crate) static REQUEST_QUEUE: channel::Channel<
                 CriticalSectionRawMutex,
-                WebRequest,
+                UpdateRequest,
                 1,
             > = channel::Channel::new();
-            pub(crate) static EVENT_QUEUE: channel::Channel<CriticalSectionRawMutex, WebEvent, 1> =
-                channel::Channel::new();
+            pub(crate) static EVENT_QUEUE: channel::Channel<
+                CriticalSectionRawMutex,
+                UpdateEvent,
+                1,
+            > = channel::Channel::new();
 
             hook(send(REQUEST_QUEUE.sender()), move || {
                 receive(EVENT_QUEUE.receiver())
@@ -190,8 +193,8 @@ mod io {
 
     fn process_local<S, R>(sender: S, receiver: R)
     where
-        S: Sender<Data = WebEvent> + 'static,
-        R: Receiver<Data = WebRequest, Error = S::Error> + 'static,
+        S: Sender<Data = UpdateEvent> + 'static,
+        R: Receiver<Data = UpdateRequest, Error = S::Error> + 'static,
     {
         spawn_local(async move {
             crate::io::process(sender, receiver).await;

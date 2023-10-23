@@ -8,7 +8,7 @@ use yew::prelude::*;
 use yewdux_middleware::*;
 
 use crate::dto::gpio::*;
-use crate::dto::web::*;
+use crate::dto::*;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PinMsg {
@@ -17,18 +17,18 @@ pub enum PinMsg {
 }
 
 impl PinMsg {
-    pub fn from_event(event: &WebEvent) -> Option<Self> {
+    pub fn from_event(event: &UpdateEvent) -> Option<Self> {
         match event {
-            WebEvent::PinUpdate(update) => Some(Self::Update(update.clone())),
+            UpdateEvent::PinUpdate(update) => Some(Self::Update(update.clone())),
             _ => None,
         }
     }
 }
 
-impl<'a> From<&'a PinMsg> for Option<WebRequest> {
+impl<'a> From<&'a PinMsg> for Option<UpdateRequest> {
     fn from(value: &'a PinMsg) -> Self {
         match value {
-            PinMsg::InputUpdate(update) => Some(WebRequest::PinInputUpdate(update.clone())),
+            PinMsg::InputUpdate(update) => Some(UpdateRequest::PinInputUpdate(update.clone())),
             _ => None,
         }
     }

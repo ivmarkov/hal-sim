@@ -12,7 +12,7 @@ use wasm_bindgen::JsCast;
 use web_sys::{CanvasRenderingContext2d, HtmlCanvasElement};
 
 use crate::dto::display::*;
-use crate::dto::web::*;
+use crate::dto::*;
 
 use super::fb::{FrameBuffer, FrameBufferStore};
 
@@ -20,15 +20,15 @@ use super::fb::{FrameBuffer, FrameBufferStore};
 pub struct DisplayMsg(pub DisplayUpdate);
 
 impl DisplayMsg {
-    pub fn from_event(event: &WebEvent) -> Option<Self> {
+    pub fn from_event(event: &UpdateEvent) -> Option<Self> {
         match event {
-            WebEvent::DisplayUpdate(update) => Some(Self(update.clone())),
+            UpdateEvent::DisplayUpdate(update) => Some(Self(update.clone())),
             _ => None,
         }
     }
 }
 
-impl<'a> From<&'a DisplayMsg> for Option<WebRequest> {
+impl<'a> From<&'a DisplayMsg> for Option<UpdateRequest> {
     fn from(_value: &'a DisplayMsg) -> Self {
         None
     }

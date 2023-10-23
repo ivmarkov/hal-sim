@@ -11,7 +11,7 @@ use yewdux::dispatch;
 use yewdux_middleware::Store;
 
 use crate::dto::display::*;
-use crate::dto::web::*;
+use crate::dto::*;
 
 use super::displays::DisplayMsg;
 

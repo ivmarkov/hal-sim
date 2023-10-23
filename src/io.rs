@@ -12,7 +12,7 @@ use crate::display::Change as DisplayChange;
 use crate::gpio::Change as PinChange;
 use crate::peripherals::Peripherals;
 
-pub use crate::dto::web::*;
+pub use crate::dto::*;
 
 pub(crate) static NOTIFY: Notification = Notification::new();
 
@@ -22,8 +22,8 @@ pub fn peripherals_callback() {
 
 pub async fn process<S, R>(sender: S, receiver: R)
 where
-    S: Sender<Data = WebEvent>,
-    R: Receiver<Data = WebRequest, Error = S::Error>,
+    S: Sender<Data = UpdateEvent>,
+    R: Receiver<Data = UpdateRequest, Error = S::Error>,
 {
     handle(sender, receiver, &mut None, &mut None, &NOTIFY)
         .await
@@ -38,8 +38,8 @@ pub async fn handle<S, R>(
     notification: &Notification,
 ) -> Result<(), S::Error>
 where
-    S: Sender<Data = WebEvent>,
-    R: Receiver<Data = WebRequest, Error = S::Error>,
+    S: Sender<Data = UpdateEvent>,
+    R: Receiver<Data = UpdateRequest, Error = S::Error>,
 {
     let sender = AsyncMutex::<NoopRawMutex, _>::new(sender);
 
@@ -54,7 +54,7 @@ where
 
 async fn receive<R>(mut receiver: R) -> Result<(), R::Error>
 where
-    R: Receiver<Data = WebRequest>,
+    R: Receiver<Data = UpdateRequest>,
 {
     loop {
         Peripherals::apply(receiver.recv().await?);
@@ -68,7 +68,7 @@ async fn send<S>(
     notification: &Notification,
 ) -> Result<(), S::Error>
 where
-    S: Sender<Data = WebEvent>,
+    S: Sender<Data = UpdateEvent>,
 {
     loop {
         notification.wait().await;

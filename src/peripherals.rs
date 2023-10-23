@@ -9,7 +9,7 @@ use crate::adc::Adc;
 use crate::display::{Change as DisplayChange, Displays, SharedDisplay, DISPLAYS};
 use crate::gpio::{Change as PinChange, Pins, SharedPin, PINS};
 
-pub use crate::dto::web::*;
+pub use crate::dto::*;
 
 #[derive(Debug)]
 pub enum TakeError {
@@ -64,10 +64,10 @@ impl Peripherals {
         }
     }
 
-    pub fn apply(request: WebRequest) {
+    pub fn apply(request: UpdateRequest) {
         let mut pins = PINS.lock().unwrap();
 
-        let WebRequest::PinInputUpdate(update) = request;
+        let UpdateRequest::PinInputUpdate(update) = request;
 
         match update {
             PinInputUpdate::Discrete(id, high) => {
@@ -82,7 +82,7 @@ impl Peripherals {
     pub fn fetch(
         pins_changes: &mut Option<Vec<PinChange>>,
         displays_changes: &mut Option<Vec<DisplayChange>>,
-    ) -> Option<WebEvent> {
+    ) -> Option<UpdateEvent> {
         if let Some(event) = Self::find_pin_change(pins_changes) {
             Some(event)
         } else {
@@ -90,7 +90,7 @@ impl Peripherals {
         }
     }
 
-    fn find_pin_change(changes: &mut Option<Vec<PinChange>>) -> Option<WebEvent> {
+    fn find_pin_change(changes: &mut Option<Vec<PinChange>>) -> Option<UpdateEvent> {
         let mut states = PINS.lock().unwrap();
 
         states.iter_mut().enumerate().find_map(|(id, state)| {
@@ -108,9 +108,9 @@ impl Peripherals {
         })
     }
 
-    fn consume_pin_change(id: u8, pin: &SharedPin, change: &mut PinChange) -> Option<WebEvent> {
+    fn consume_pin_change(id: u8, pin: &SharedPin, change: &mut PinChange) -> Option<UpdateEvent> {
         if *change != PinChange::None {
-            let event = Some(WebEvent::PinUpdate(PinUpdate {
+            let event = Some(UpdateEvent::PinUpdate(PinUpdate {
                 id,
                 meta: if *change == PinChange::Created {
                     Some(pin.meta().clone())
@@ -129,7 +129,7 @@ impl Peripherals {
         }
     }
 
-    fn find_display_change(changes: &mut Option<Vec<DisplayChange>>) -> Option<WebEvent> {
+    fn find_display_change(changes: &mut Option<Vec<DisplayChange>>) -> Option<UpdateEvent> {
         let mut states = DISPLAYS.lock().unwrap();
 
         states.iter_mut().enumerate().find_map(|(id, state)| {
@@ -151,9 +151,9 @@ impl Peripherals {
         id: u8,
         display: &SharedDisplay,
         change: &mut DisplayChange,
-    ) -> Option<WebEvent> {
+    ) -> Option<UpdateEvent> {
         if change.created || change.dropped {
-            let event = Some(WebEvent::DisplayUpdate(DisplayUpdate::MetaUpdate {
+            let event = Some(UpdateEvent::DisplayUpdate(DisplayUpdate::MetaUpdate {
                 id,
                 meta: change.created.then_some(display.meta().clone()),
                 dropped: display.dropped(),
@@ -171,7 +171,7 @@ impl Peripherals {
                 .find_map(|(row, (start, end))| (*start < *end).then_some((row, start, end)));
 
             if let Some((row, start, end)) = changed_row {
-                let event = Some(WebEvent::DisplayUpdate(DisplayUpdate::StripeUpdate(
+                let event = Some(UpdateEvent::DisplayUpdate(DisplayUpdate::StripeUpdate(
                     StripeUpdate {
                         id,
                         row: row as _,
@@ -184,7 +184,7 @@ impl Peripherals {
                                     let bytes = pixel.to_be_bytes();
                                     [bytes[1], bytes[2], bytes[3]]
                                 })
-                                .collect::<heapless::Vec<_, { crate::dto::web::SCREEN_MAX_STRIPE_U8_LEN }>>()
+                                .collect::<heapless::Vec<_, { crate::dto::SCREEN_MAX_STRIPE_U8_LEN }>>()
                         },
                     },
                 )));
