@@ -6,11 +6,9 @@
 
 Go to [this page](https://github.com/ivmarkov/ruwm) and click the "DEMO" there link to see the simulator in action!
 
-(WIP - UNFINISHED)
-
 This crate simulates a small portion of the embedded-hal traits. Namely:
-* GPIO
-* ADC
+* GPIO (both e-hal V0.2 and e-hal V1.0 traits, including the async `Wait` trait)
+* ADC (only e-hal V0.2, as there are no standard traits for ADC in e-hal V1.0 yet)
 
 Additionally, it also contains an [embedded-graphics](https://github.com/embedded-graphics/embedded-graphics) Display driver simulator.
 
