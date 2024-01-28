@@ -44,8 +44,8 @@ impl Pins {
 
     pub fn input(
         &mut self,
-        name: impl Into<PinName>,
-        category: impl Into<PinCategory>,
+        name: impl TryInto<PinName>,
+        category: impl TryInto<PinCategory>,
         value: bool,
     ) -> Pin<Input> {
         self.new_pin(
@@ -59,7 +59,7 @@ impl Pins {
     pub fn input_click(
         &mut self,
         name: impl TryInto<PinName>,
-        category: impl Into<PinCategory>,
+        category: impl TryInto<PinCategory>,
         value: bool,
     ) -> Pin<Input> {
         self.new_pin(
@@ -72,8 +72,8 @@ impl Pins {
 
     pub fn output(
         &mut self,
-        name: impl Into<PinName>,
-        category: impl Into<PinCategory>,
+        name: impl TryInto<PinName>,
+        category: impl TryInto<PinCategory>,
         value: bool,
     ) -> Pin<Output> {
         self.new_pin(name, category, PinType::Output, PinValue::Output(value))
@@ -81,8 +81,8 @@ impl Pins {
 
     pub fn input_output(
         &mut self,
-        name: impl Into<PinName>,
-        category: impl Into<PinCategory>,
+        name: impl TryInto<PinName>,
+        category: impl TryInto<PinCategory>,
         input: bool,
         output: bool,
     ) -> Pin<InputOutput> {
@@ -96,8 +96,8 @@ impl Pins {
 
     pub fn input_output_click(
         &mut self,
-        name: impl Into<PinName>,
-        category: impl Into<PinCategory>,
+        name: impl TryInto<PinName>,
+        category: impl TryInto<PinCategory>,
         input: bool,
         output: bool,
     ) -> Pin<InputOutput> {
@@ -111,8 +111,8 @@ impl Pins {
 
     pub fn adc<ADC>(
         &mut self,
-        name: impl Into<PinName>,
-        category: impl Into<PinCategory>,
+        name: impl TryInto<PinName>,
+        category: impl TryInto<PinCategory>,
         value: u16,
     ) -> Pin<ADC>
     where
@@ -123,8 +123,8 @@ impl Pins {
 
     pub fn adc_range<ADC>(
         &mut self,
-        name: impl Into<PinName>,
-        category: impl Into<PinCategory>,
+        name: impl TryInto<PinName>,
+        category: impl TryInto<PinCategory>,
         min: u16,
         max: u16,
         value: u16,

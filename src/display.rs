@@ -32,7 +32,7 @@ impl Displays {
 
     pub fn display<C>(
         &mut self,
-        name: impl Into<DisplayName>,
+        name: impl TryInto<DisplayName>,
         width: usize,
         height: usize,
         converter: impl Fn(C) -> u32 + 'static,
@@ -43,7 +43,7 @@ impl Displays {
         let id = self.id_gen;
         self.id_gen += 1;
 
-        let state = DisplayState::new(name.into(), width, height);
+        let state = DisplayState::new(name.try_into().map_err(|_| ()).unwrap(), width, height);
 
         {
             let mut states = DISPLAYS.lock().unwrap();
