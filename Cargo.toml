@@ -10,14 +10,14 @@ license = "MIT OR Apache-2.0"
 readme = "README.md"
 rust-version = "1.75"
 
+[patch.crates-io]
+yewdux-middleware = {git = "https://github.com/ivmarkov/yewdux-middleware" }
+
 [features]
 default = ["ui", "io"]
 sim = ["nb", "embedded-hal", "embedded-hal-async", "embedded-hal02", "embedded-graphics-core"]
 io = ["sim", "futures", "embassy-futures", "embassy-sync", "channel-bridge"]
 ui = ["yew", "yewdux", "yewdux-middleware", "wasm-logger", "wasm-bindgen", "wasm-bindgen-futures", "web-sys", "itertools", "gloo-timers", "gloo-net", "channel-bridge/wasm"]
-
-[patch.crates-io]
-yewdux-middleware = { path = "../yewdux-middleware" }
 
 [dependencies]
 serde = { version = "1", default-features = false, features = ["derive"] }
