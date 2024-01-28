@@ -58,7 +58,7 @@ impl Pins {
 
     pub fn input_click(
         &mut self,
-        name: impl Into<PinName>,
+        name: impl TryInto<PinName>,
         category: impl Into<PinCategory>,
         value: bool,
     ) -> Pin<Input> {
@@ -142,15 +142,20 @@ impl Pins {
 
     fn new_pin<MODE>(
         &mut self,
-        name: impl Into<PinName>,
-        category: impl Into<PinCategory>,
+        name: impl TryInto<PinName>,
+        category: impl TryInto<PinCategory>,
         pin_type: PinType,
         value: PinValue,
     ) -> Pin<MODE> {
         let id = self.id_gen;
         self.id_gen += 1;
 
-        let state = PinState::new(name.into(), category.into(), pin_type, value);
+        let state = PinState::new(
+            name.try_into().map_err(|_| ()).unwrap(),
+            category.try_into().map_err(|_| ()).unwrap(),
+            pin_type,
+            value,
+        );
 
         {
             let mut states = PINS.lock().unwrap();
