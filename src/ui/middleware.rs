@@ -1,6 +1,6 @@
 use core::fmt::Debug;
 
-use yewdux_middleware::{context::MiddlewareContext, *};
+use yewdux_middleware::*;
 
 use log::{log, Level};
 
