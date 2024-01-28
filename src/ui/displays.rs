@@ -6,6 +6,7 @@ use alloc::rc::Rc;
 use log::trace;
 
 use yew::prelude::*;
+use yewdux::use_store_value;
 use yewdux_middleware::*;
 
 use wasm_bindgen::JsCast;
@@ -134,14 +135,14 @@ pub fn display_canvas(props: &DisplayCanvasProps) -> Html {
             if ctx_ref.borrow().is_none() {
                 trace!("[FB DRAW] CONTEXT CREATED");
 
-                let ctx = create_draw_context(node_ref, width, height);
+                let mcx = create_draw_context(node_ref, width, height);
                 FrameBuffer::blit(id, true, |image_data, x, y| {
-                    ctx.put_image_data(image_data, x as _, y as _).unwrap();
+                    mcx.put_image_data(image_data, x as _, y as _).unwrap();
 
                     trace!("[FB DRAW] SCREEN FULL BLIT");
                 });
 
-                *ctx_ref.borrow_mut() = Some(ctx);
+                *ctx_ref.borrow_mut() = Some(mcx);
             }
 
             move || {
@@ -155,11 +156,11 @@ pub fn display_canvas(props: &DisplayCanvasProps) -> Html {
         let id = props.id;
 
         use_effect(move || {
-            if let Some(ctx) = ctx_ref.borrow().as_ref() {
+            if let Some(mcx) = ctx_ref.borrow().as_ref() {
                 trace!("[FB DRAW] SCREEN BLIT START");
 
                 FrameBuffer::blit(id, false, |image_data, x, y| {
-                    ctx.put_image_data(image_data, x as _, y as _).unwrap();
+                    mcx.put_image_data(image_data, x as _, y as _).unwrap();
 
                     trace!(
                         "[FB DRAW] SCREEN BLIT: x={} y={} w={} h={}",
@@ -187,15 +188,15 @@ fn create_draw_context(
 ) -> CanvasRenderingContext2d {
     let canvas = node_ref.cast::<HtmlCanvasElement>().unwrap();
 
-    let ctx: CanvasRenderingContext2d = canvas
+    let mcx: CanvasRenderingContext2d = canvas
         .get_context("2d")
         .unwrap()
         .unwrap()
         .dyn_into()
         .unwrap();
 
-    ctx.set_fill_style(&"#000000".into());
-    ctx.fill_rect(0 as _, 0 as _, width as _, height as _);
+    mcx.set_fill_style(&"#000000".into());
+    mcx.fill_rect(0 as _, 0 as _, width as _, height as _);
 
-    ctx
+    mcx
 }

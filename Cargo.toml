@@ -8,36 +8,38 @@ description = "An embedded-hal and embedded-graphics Display simulator."
 repository = "https://github.com/ivmarkov/hal-sim"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
-rust-version = "1.71"
+rust-version = "1.75"
 
 [features]
 default = ["ui", "io"]
-nightly = ["channel-bridge?/nightly", "embedded-hal-async"]
-sim = ["nb", "embedded-hal", "embedded-hal02", "embedded-graphics-core"]
+sim = ["nb", "embedded-hal", "embedded-hal-async", "embedded-hal02", "embedded-graphics-core"]
 io = ["sim", "futures", "embassy-futures", "embassy-sync", "channel-bridge"]
 ui = ["yew", "yewdux", "yewdux-middleware", "wasm-logger", "wasm-bindgen", "wasm-bindgen-futures", "web-sys", "itertools", "gloo-timers", "gloo-net", "channel-bridge/wasm"]
 
+[patch.crates-io]
+yewdux-middleware = { path = "../yewdux-middleware" }
+
 [dependencies]
 serde = { version = "1", default-features = false, features = ["derive"] }
-heapless = { version = "0.7", features = ["serde"] }
+heapless = { version = "0.8", features = ["serde"] }
 log = "0.4"
 
 # sim
 nb = { version = "1", optional = true }
 embedded-hal02 = { package = "embedded-hal", version = "0.2", features = ["unproven"], optional = true }
-embedded-hal = { version = "1.0.0-rc.1", optional = true }
-embedded-hal-async = { version = "1.0.0-rc.1", optional = true }
+embedded-hal = { version = "1", optional = true }
+embedded-hal-async = { version = "1", optional = true }
 embedded-graphics-core = { version = "0.4", optional = true }
 
 # web
 futures = { version = "0.3", optional = true }
 embassy-futures = { version = "0.1", optional = true }
-embassy-sync = { version = "0.3", optional = true }
-channel-bridge = { version = "0.6", default-features = false, optional = true }
+embassy-sync = { version = "0.5", optional = true }
+channel-bridge = { version = "0.7", default-features = false, optional = true }
 
 # ui
 yew = { version = "0.21", default-features = false, optional = true, features = ["csr"] }
-yewdux = { version = "0.9", default-features = false, optional = true }
+yewdux = { version = "0.10", default-features = false, optional = true }
 yewdux-middleware = { version = "0.2", optional = true }
 wasm-logger = { version = "0.2", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }

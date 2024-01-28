@@ -2,6 +2,7 @@ use yew::prelude::*;
 
 pub use displays::*;
 pub use pins::*;
+use yewdux_middleware::use_mcx;
 
 use self::fb::FrameBuffer;
 
@@ -22,10 +23,10 @@ pub struct HalProps {
 #[function_component(Hal)]
 pub fn hal(props: &HalProps) -> Html {
     let _endpoint = props.endpoint.clone();
+    let mcx = use_mcx();
 
     use_effect_with((), move |_| {
-        #[cfg(feature = "nightly")]
-        middleware::init(_endpoint.as_deref());
+        middleware::init(&mcx, _endpoint.as_deref());
 
         move || ()
     });

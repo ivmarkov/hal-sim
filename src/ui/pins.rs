@@ -5,6 +5,7 @@ use itertools::Itertools;
 use web_sys::HtmlInputElement;
 
 use yew::prelude::*;
+use yewdux::use_store_value;
 use yewdux_middleware::*;
 
 use crate::dto::gpio::*;
@@ -138,6 +139,8 @@ pub struct PinProps {
 
 #[function_component(Pin)]
 pub fn pin(props: &PinProps) -> Html {
+    let mcx = use_mcx();
+
     let pins = use_store_value::<PinsStore>();
 
     let pin: &PinState = &pins.0[props.id as usize];
@@ -173,9 +176,7 @@ pub fn pin(props: &PinProps) -> Html {
 
                     match pin.value {
                         PinValue::Input(input) | PinValue::InputOutput { input, .. } => {
-                            dispatch::invoke(PinMsg::InputUpdate(PinInputUpdate::Discrete(
-                                id, !input,
-                            )));
+                            mcx.invoke(PinMsg::InputUpdate(PinInputUpdate::Discrete(id, !input)));
                         }
                         _ => unreachable!(),
                     }
@@ -201,7 +202,7 @@ pub fn pin(props: &PinProps) -> Html {
                     match pin.value {
                         PinValue::Input(input) | PinValue::InputOutput { input, .. } => {
                             if input != value {
-                                dispatch::invoke(PinMsg::InputUpdate(PinInputUpdate::Discrete(
+                                mcx.invoke(PinMsg::InputUpdate(PinInputUpdate::Discrete(
                                     id, value,
                                 )));
                             }
@@ -244,9 +245,7 @@ pub fn pin(props: &PinProps) -> Html {
                 match pin.value {
                     PinValue::Adc(input) => {
                         if input != value {
-                            dispatch::invoke(PinMsg::InputUpdate(PinInputUpdate::Analog(
-                                id, value,
-                            )));
+                            mcx.invoke(PinMsg::InputUpdate(PinInputUpdate::Analog(id, value)));
                         }
                     }
                     _ => unreachable!(),

@@ -179,7 +179,6 @@ impl<MODE> Pin<MODE> {
     }
 }
 
-#[cfg(feature = "nightly")]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum WaitType {
     LowLevel,
@@ -201,7 +200,6 @@ where
         }
     }
 
-    #[cfg(feature = "nightly")]
     async fn wait(&self, wait_type: WaitType) {
         let notif = {
             let guard = PINS.lock().unwrap();
@@ -308,16 +306,15 @@ impl<MODE> InputPin for Pin<MODE>
 where
     MODE: InputMode,
 {
-    fn is_high(&self) -> Result<bool, Self::Error> {
+    fn is_high(&mut self) -> Result<bool, Self::Error> {
         Ok(Pin::is_high(self))
     }
 
-    fn is_low(&self) -> Result<bool, Self::Error> {
+    fn is_low(&mut self) -> Result<bool, Self::Error> {
         Ok(!Pin::is_high(self))
     }
 }
 
-#[cfg(feature = "nightly")]
 impl<MODE> embedded_hal_async::digital::Wait for Pin<MODE>
 where
     MODE: InputMode,

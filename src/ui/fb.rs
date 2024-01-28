@@ -7,7 +7,7 @@ use web_sys::ImageData;
 
 use gloo_timers::callback::Timeout;
 
-use yewdux::dispatch;
+use yewdux::Context;
 use yewdux_middleware::Store;
 
 use crate::dto::display::*;
@@ -47,7 +47,7 @@ impl FrameBuffer {
         }
     }
 
-    pub fn update(msg: &DisplayMsg) {
+    pub fn update(mcx: &Context, msg: &DisplayMsg) {
         match msg {
             DisplayMsg(DisplayUpdate::MetaUpdate { id, meta, .. }) => {
                 if let Some(meta) = meta.as_ref() {
@@ -71,9 +71,11 @@ impl FrameBuffer {
 
         // Use a timeout to accuulate bursts of icoming screen updates
         // into a single one
-        TIMEOUT.with(|timeout| {
-            *timeout.borrow_mut() = Some(Timeout::new(10, || {
-                dispatch::reduce_mut(|store: &mut FrameBufferStore| {
+        let mcx = mcx.clone();
+        TIMEOUT.with(move |timeout| {
+            let mcx = mcx.clone();
+            *timeout.borrow_mut() = Some(Timeout::new(10, move || {
+                mcx.reduce_mut(|store: &mut FrameBufferStore| {
                     store.0 += 1;
                 })
             }));
