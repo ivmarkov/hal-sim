@@ -119,7 +119,7 @@ mod io {
     pub fn init(mcx: &MiddlewareContext, endpoint: Option<&str>) {
         if let Some(endpoint) = endpoint {
             let (sender, receiver) = WebSocket::open(&format!(
-                "ws://{}/{}",
+                "ws://{}{}",
                 web_sys::window().unwrap().location().host().unwrap(),
                 endpoint,
             ))
