@@ -81,7 +81,7 @@ where
         .fuse(Rc::new(log_msg(Level::Trace)))
 }
 
-fn as_request<M, D>(mcx: &MiddlewareContext, msg: M, _dispatch: D)
+fn as_request<M, D>(mcx: &MiddlewareContext, msg: M, dispatch: D)
 where
     M: Debug + 'static,
     for<'a> &'a M: Into<Option<UpdateRequest>>,
@@ -91,7 +91,7 @@ where
         mcx.invoke(request);
     }
 
-    mcx.invoke(msg);
+    dispatch.invoke(mcx, msg);
 }
 
 mod io {
