@@ -1,6 +1,6 @@
 [package]
 name = "hal-sim"
-version = "0.5.0"
+version = "0.5.1"
 edition = "2021"
 categories = ["embedded", "hardware-support", "simulation"]
 keywords = ["hal", "embedded", "simulation", "wasm"]
