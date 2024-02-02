@@ -10,9 +10,6 @@ license = "MIT OR Apache-2.0"
 readme = "README.md"
 rust-version = "1.75"
 
-[patch.crates-io]
-yewdux-middleware = {git = "https://github.com/ivmarkov/yewdux-middleware" }
-
 [features]
 default = ["ui", "io"]
 sim = ["nb", "embedded-hal", "embedded-hal-async", "embedded-hal02", "embedded-graphics-core"]
@@ -30,6 +27,7 @@ embedded-hal02 = { package = "embedded-hal", version = "0.2", features = ["unpro
 embedded-hal = { version = "1", optional = true }
 embedded-hal-async = { version = "1", optional = true }
 embedded-graphics-core = { version = "0.4", optional = true }
+embedded-nal-async = "0.7"
 
 # web
 futures = { version = "0.3", optional = true }
