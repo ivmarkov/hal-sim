@@ -184,9 +184,9 @@ impl FrameBuffer {
 }
 
 thread_local! {
-    static FBS: RefCell<Vec<FrameBuffer>> = RefCell::new(Vec::new());
+    static FBS: RefCell<Vec<FrameBuffer>> = const { RefCell::new(Vec::new()) };
 }
 
 thread_local! {
-    static TIMEOUT: RefCell<Option<Timeout>> = RefCell::new(None);
+    static TIMEOUT: RefCell<Option<Timeout>> = const { RefCell::new(None) };
 }
