@@ -181,6 +181,7 @@ pub fn display_canvas(props: &DisplayCanvasProps) -> Html {
     }
 }
 
+#[allow(deprecated)]
 fn create_draw_context(
     node_ref: &NodeRef,
     width: usize,

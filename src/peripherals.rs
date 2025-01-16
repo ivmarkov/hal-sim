@@ -24,8 +24,8 @@ impl fmt::Display for TakeError {
     }
 }
 
-#[cfg(feature = "std")]
-impl ::std::error::Error for TakeError {}
+// #[cfg(feature = "std")]
+// impl ::std::error::Error for TakeError {}
 
 static TAKEN: Mutex<bool> = Mutex::new(false);
 

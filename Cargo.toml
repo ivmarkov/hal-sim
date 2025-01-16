@@ -27,13 +27,12 @@ embedded-hal02 = { package = "embedded-hal", version = "0.2", features = ["unpro
 embedded-hal = { version = "1", optional = true }
 embedded-hal-async = { version = "1", optional = true }
 embedded-graphics-core = { version = "0.4", optional = true }
-embedded-nal-async = "0.7"
 
 # web
 futures = { version = "0.3", optional = true }
 embassy-futures = { version = "0.1", optional = true }
 embassy-sync = { version = "0.6", optional = true }
-channel-bridge = { version = "0.8", default-features = false, optional = true }
+channel-bridge = { version = "0.9", default-features = false, optional = true }
 
 # ui
 yew = { version = "0.21", default-features = false, optional = true, features = ["csr"] }
@@ -45,4 +44,4 @@ wasm-bindgen-futures = { version = "0.4", optional = true }
 web-sys = { version = "0.3", optional = true, features = ["console", "CanvasRenderingContext2d", "ImageData", "HtmlCanvasElement"] }
 itertools = { version = "0.11", optional = true }
 gloo-timers = { version = "0.3", optional = true }
-gloo-net = { version = "0.4", optional = true, features = ["websocket"] }
+gloo-net = { version = "0.6", optional = true, features = ["websocket"] }
